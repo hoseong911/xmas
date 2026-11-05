@@ -97,7 +97,7 @@ import { collection, onSnapshot, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, C_ORNAMENTS, watchConfig, esc, mountSnow } from "./xmas-core.js";
 import { ornamentSVG } from "./ornaments.js";
-import { layout, TREE, TIERS, tierPath, starPath } from "./tree-layout.js";
+import { placeAll, TREE, TIERS, tierPath, starPath } from "./tree-layout.js";
 
 const $ = s => document.querySelector(s);
 
@@ -206,7 +206,8 @@ let firstPaint = true;
 
 function render(freshIds = new Set()) {
   const wrap = $('#orns');
-  const placed = layout(items.map(it => it.id));
+  // 학생이 고른 자리(x, y)가 있으면 그대로, 없는 옛 문서만 자동으로 채운다
+  const placed = placeAll(items);
   const byId = new Map(items.map(it => [it.id, it]));
 
   // 사라진 것 치우기(어드민에서 숨긴 편지)
@@ -248,7 +249,10 @@ onSnapshot(query(collection(db, C_ORNAMENTS), orderBy('createdAt')),
   snap => {
     const fresh = new Set();
     snap.docChanges().forEach(ch => { if (ch.type === 'added') fresh.add(ch.doc.id); });
-    items = snap.docs.map(d => ({ id: d.id, ornament: d.data().ornament }));
+    items = snap.docs.map(d => {
+      const v = d.data();
+      return { id: d.id, ornament: v.ornament, x: v.x, y: v.y };
+    });
     render(fresh);
   },
   err => {

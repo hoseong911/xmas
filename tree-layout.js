@@ -44,8 +44,8 @@ export function slotIndex(i, rows) {
   return { row, col: k, cols: row + 2 };
 }
 
-/** 줄 수에 맞는 오너먼트 너비(viewBox 단위). 살짝 겹치게 두어야 트리가 비어 보이지 않는다. */
-export function ornamentWidth(rows) {
+/** 칸 간격을 정하는 기준 너비. 오너먼트 자체 크기가 아니다(그건 ORN_W). */
+export function slotPitch(rows) {
   const bottomCols = rows + 1;
   const spread = 2 * TREE.baseHalf * TREE.inset;
   return (spread / bottomCols) * 1.15;
@@ -80,7 +80,6 @@ export function hash01(str, salt = 0) {
 export function layout(ids) {
   const n = ids.length;
   const rows = rowsFor(n);
-  const w = ornamentWidth(rows);
   const gap = rowGap(rows);
   return ids.map((id, i) => {
     const { row, col, cols } = slotIndex(i, rows);
@@ -93,7 +92,7 @@ export function layout(ids) {
     const pitch = (2 * half) / cols;
     const x = baseX + (hash01(id, 1) - 0.5) * pitch * 0.3;
     const y = baseY + (hash01(id, 2) - 0.5) * gap * 0.34;
-    return { id, x, y, w };
+    return { id, x, y, w: ORN_W };
   });
 }
 
@@ -173,4 +172,107 @@ export function tierHalfAt(y) {
     w = Math.max(w, (span / (t.baseY - t.apexY)) * t.half);
   }
   return w;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   학생이 자리를 고른다 (2026-11-05)
+
+   예전에는 걸린 차례대로 칸을 나눠 주고, 편지가 늘면 줄을 늘리며 오너먼트를
+   줄였다. 편지 180통이면 오너먼트가 트리 폭의 3.5%까지 작아져 뭘 달았는지
+   알아보기 어려웠다.
+
+   지금은 **학생이 직접 찍은 자리(x, y)를 문서에 저장한다.** 그래서
+     · 오너먼트 크기를 편지 수와 무관하게 큼직한 한 값(ORN_W)으로 고정할 수 있고,
+     · 편지가 늘어도 남의 오너먼트가 움직이지 않는다("내가 저기 달았어"가 지켜진다).
+   대신 트리가 아주 빽빽해지면 서로 겹친다 — 자리를 고르게 한 이상 피할 수 없고,
+   잔뜩 꾸민 진짜 트리처럼 보여서 그대로 두기로 했다.
+
+   자리가 없던 시절의 문서(x, y가 없는 것)는 예전처럼 layout()이 자리를 잡아 준다.
+   ════════════════════════════════════════════════════════════════ */
+
+/** 오너먼트 너비(viewBox 단위). 트리 폭이 80이므로 맨 아랫줄에 열한 개쯤 들어간다. */
+export const ORN_W = 7;
+
+/** 오너먼트 높이 — 그림이 64x80 비율이다 */
+export function ornHeight(w = ORN_W) { return w * 80 / 64; }
+
+/** 가지 위인가 (가장자리에 살짝 걸치는 것까지는 봐준다) */
+export function onTree(x, y, w = ORN_W) {
+  if (y < TREE.firstRowY - 1 || y > TREE.baseY + 1) return false;
+  return Math.abs(x - 50) <= tierHalfAt(y) - w * 0.2;
+}
+
+/** 찍은 자리를 가지 안으로 끌어다 놓는다 */
+export function clampSpot(x, y, w = ORN_W) {
+  const yy = Math.min(TREE.baseY, Math.max(TREE.firstRowY, y));
+  // 가장자리에 조금 걸치는 건 자연스러우므로 폭의 20%까지 내보낸다
+  const room = Math.max(0, tierHalfAt(yy) - w * 0.2);
+  const xx = Math.min(50 + room, Math.max(50 - room, x));
+  return { x: xx, y: yy };
+}
+
+/**
+ * 찍은 자리가 이미 걸린 오너먼트와 너무 겹치면 가까운 빈자리로 밀어 준다.
+ * 트리가 꽉 차 밀 데가 없으면 찍은 자리를 그대로 쓴다(겹쳐 달린다).
+ * @param {{x:number,y:number}[]} taken 이미 걸린 자리들
+ */
+export function nudgeFree(x, y, taken, w = ORN_W) {
+  const near = w * 0.62;                 // 이보다 가까우면 겹친 것으로 본다
+  const free = (px, py) => !taken.some(t =>
+    Math.hypot((t.x || 0) - px, (t.y || 0) - py) < near);
+
+  let spot = clampSpot(x, y, w);
+  if (free(spot.x, spot.y)) return spot;
+
+  for (let r = near * 0.8; r <= 30; r += near * 0.55) {
+    // 반지름마다 각도를 틀어 늘 같은 방향으로만 밀리지 않게 한다
+    const turn = r * 1.7;
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2 + turn;
+      const c = clampSpot(x + Math.cos(a) * r, y + Math.sin(a) * r, w);
+      if (free(c.x, c.y)) return c;
+    }
+  }
+  return spot;
+}
+
+/**
+ * "아무 데나 달아 주세요"용 자리. 빈 곳 가운데 하나를 고른다.
+ * seed가 같으면 늘 같은 자리가 나오므로 화면을 새로고침해도 흔들리지 않는다.
+ */
+export function autoSpot(taken, seed = '', w = ORN_W) {
+  const rows = TREE.maxRows > 16 ? 16 : TREE.maxRows;   // 칸 152개면 넉넉하다
+  const gap = rowGap(rows);
+  const cand = [];
+  for (let i = 0; i < slotCapacity(rows); i++) {
+    const { row, col, cols } = slotIndex(i, rows);
+    const by = TREE.firstRowY + row * gap;
+    const half = halfWidthAt(by);
+    cand.push(clampSpot(50 + (((col + 0.5) / cols) * 2 - 1) * half, by, w));
+  }
+  // seed로 고른 자리부터 한 바퀴 돌며 처음 만나는 빈 곳을 쓴다
+  const start = Math.floor(hash01(seed, 9) * cand.length);
+  const near = w * 0.62;
+  for (let k = 0; k < cand.length; k++) {
+    const c = cand[(start + k) % cand.length];
+    if (!taken.some(t => Math.hypot((t.x || 0) - c.x, (t.y || 0) - c.y) < near)) return c;
+  }
+  return nudgeFree(cand[start].x, cand[start].y, taken, w);
+}
+
+/**
+ * 트리에 걸 것들의 자리를 정한다.
+ * 학생이 고른 자리(x, y)가 있으면 그대로 쓰고, 없는 것만 예전 방식으로 채운다.
+ * @param {{id:string, x?:number, y?:number}[]} items 걸린 순서대로
+ */
+export function placeAll(items) {
+  const legacy = items.filter(it => !Number.isFinite(it.x) || !Number.isFinite(it.y));
+  const fallback = new Map(layout(legacy.map(it => it.id)).map(p => [p.id, p]));
+  return items.map(it => {
+    if (Number.isFinite(it.x) && Number.isFinite(it.y)) {
+      const c = clampSpot(it.x, it.y);
+      return { id: it.id, x: c.x, y: c.y, w: ORN_W };
+    }
+    return fallback.get(it.id);
+  });
 }

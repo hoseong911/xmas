@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TREE, slotCapacity, rowsFor, slotIndex, ornamentWidth, halfWidthAt, hash01, layout
+  TREE, slotCapacity, rowsFor, slotIndex, slotPitch, halfWidthAt, hash01, layout,
+  ORN_W, ornHeight, onTree, clampSpot, nudgeFree, autoSpot, placeAll
 } from '../tree-layout.js';
 
 const ids = n => Array.from({ length: n }, (_, i) => 'letter' + i);
@@ -52,9 +53,9 @@ test('halfWidthAt: 꼭대기는 0, 아래로 갈수록 넓어진다', () => {
   assert.ok(Math.abs(halfWidthAt(TREE.baseY) - TREE.baseHalf * TREE.inset) < 1e-9);
 });
 
-test('ornamentWidth: 편지가 많아질수록 오너먼트가 작아진다', () => {
-  assert.ok(ornamentWidth(6) > ornamentWidth(12));
-  assert.ok(ornamentWidth(12) > ornamentWidth(24));
+test('slotPitch: 편지가 많아질수록 칸이 촘촘해진다', () => {
+  assert.ok(slotPitch(6) > slotPitch(12));
+  assert.ok(slotPitch(12) > slotPitch(24));
 });
 
 test('hash01: 같은 글자는 늘 같은 값, 소금이 다르면 다른 값', () => {
@@ -77,14 +78,18 @@ test('layout: 오너먼트가 트리 그림 밖으로 나가지 않는다', () =
   }
 });
 
-test('layout: 아래 줄 오너먼트가 서로 심하게 겹치지 않는다', () => {
+test('layout: 자동으로 잡아 주는 자리끼리 칸을 넘어가지 않는다', () => {
   const out = layout(ids(100));
-  const w = out[0].w;
-  // 맨 아래 줄만 본다 — 가장 빽빽한 줄이다
   const bottom = out.filter(o => o.y > TREE.baseY - 3).sort((a, b) => a.x - b.x);
+  /* 흔들림은 칸 간격의 ±15%라 이웃 사이는 아무리 좁아도 칸 간격의 70%는 남는다.
+     칸 수는 세어서 구하면 안 된다 — 마지막 줄은 대개 덜 차 있어서
+     실제보다 넓은 간격이 나오고, 멀쩡한 자리를 "붙었다"고 잡는다. */
+  const cols = rowsFor(100) + 1;
+  const pitch = (2 * halfWidthAt(TREE.baseY)) / cols;
   for (let i = 1; i < bottom.length; i++) {
-    assert.ok(bottom[i].x - bottom[i - 1].x > w * 0.45,
-      `너무 붙었다: ${bottom[i - 1].x} / ${bottom[i].x} (너비 ${w})`);
+    const gap = bottom[i].x - bottom[i - 1].x;
+    assert.ok(gap > pitch * 0.68,
+      `너무 붙었다: ${bottom[i - 1].x.toFixed(2)} / ${bottom[i].x.toFixed(2)} (칸 간격 ${pitch.toFixed(2)})`);
   }
 });
 
@@ -144,4 +149,95 @@ test('layout: 모든 오너먼트가 가지 위에 걸린다', () => {
         `${n}통: x=${o.x.toFixed(1)} y=${o.y.toFixed(1)} 가지 반폭=${tierHalfAt(o.y).toFixed(1)}`);
     }
   }
+});
+
+// ── 학생이 고르는 자리 ──────────────────────────────────────────
+
+test('ORN_W: 편지 수와 무관하게 늘 같은 크기다', () => {
+  for (const n of [1, 50, 180, 400]) {
+    for (const p of layout(ids(n))) assert.equal(p.w, ORN_W);
+  }
+  assert.ok(ornHeight() > ORN_W);          // 그림이 세로로 길다(고리 자리)
+});
+
+test('clampSpot: 어디를 찍어도 가지 안으로 끌어온다', () => {
+  for (const [x, y] of [[-50, 60], [200, 60], [50, -10], [50, 400], [0, 0], [100, 130]]) {
+    const s = clampSpot(x, y);
+    assert.ok(Number.isFinite(s.x) && Number.isFinite(s.y), `${x},${y}`);
+    assert.ok(s.y >= TREE.firstRowY && s.y <= TREE.baseY, `y=${s.y}`);
+    assert.ok(Math.abs(s.x - 50) <= tierHalfAt(s.y) + 1e-9, `x=${s.x} y=${s.y}`);
+  }
+});
+
+test('clampSpot: 이미 가지 안이면 그대로 둔다', () => {
+  const s = clampSpot(50, 80);
+  assert.equal(s.x, 50);
+  assert.equal(s.y, 80);
+});
+
+test('onTree: 가지 밖은 걸러낸다', () => {
+  assert.equal(onTree(50, 80), true);
+  assert.equal(onTree(5, 80), false);      // 왼쪽 허공
+  assert.equal(onTree(50, 10), false);     // 별 자리
+  assert.equal(onTree(50, 128), false);    // 바닥
+});
+
+test('nudgeFree: 이미 걸린 자리에 겹쳐 찍으면 옆으로 밀어 준다', () => {
+  const taken = [{ x: 50, y: 70 }];
+  const s = nudgeFree(50, 70, taken);
+  assert.ok(Math.hypot(s.x - 50, s.y - 70) >= ORN_W * 0.6, `거리 ${Math.hypot(s.x - 50, s.y - 70)}`);
+  assert.ok(Math.abs(s.x - 50) <= tierHalfAt(s.y) + 1e-9);
+});
+
+test('nudgeFree: 빈 자리면 찍은 그대로 둔다', () => {
+  const s = nudgeFree(44, 90, [{ x: 60, y: 60 }]);
+  assert.equal(s.x, 44);
+  assert.equal(s.y, 90);
+});
+
+test('nudgeFree: 꽉 차 있어도 가지 안의 자리를 돌려준다', () => {
+  // 트리 전체를 촘촘히 메운 상태
+  const taken = [];
+  for (let y = TREE.firstRowY; y <= TREE.baseY; y += 2) {
+    for (let x = 50 - tierHalfAt(y); x <= 50 + tierHalfAt(y); x += 2) taken.push({ x, y });
+  }
+  const s = nudgeFree(50, 80, taken);
+  assert.ok(Number.isFinite(s.x) && Number.isFinite(s.y));
+  assert.ok(Math.abs(s.x - 50) <= tierHalfAt(s.y) + 1e-9);
+});
+
+test('autoSpot: 빈 곳을 찾아 주고, 같은 씨앗이면 같은 자리다', () => {
+  const taken = [];
+  for (let i = 0; i < 40; i++) {
+    const s = autoSpot(taken, 'letter' + i);
+    assert.ok(Math.abs(s.x - 50) <= tierHalfAt(s.y) + 1e-9, `자리 밖 ${s.x},${s.y}`);
+    // 앞서 놓은 것과 겹치지 않아야 한다
+    for (const t of taken) {
+      assert.ok(Math.hypot(t.x - s.x, t.y - s.y) >= ORN_W * 0.6,
+        `${i}번째가 겹쳤다 (${s.x.toFixed(1)},${s.y.toFixed(1)})`);
+    }
+    taken.push(s);
+  }
+  assert.deepEqual(autoSpot([], 'abc'), autoSpot([], 'abc'));
+  assert.notDeepEqual(autoSpot([], 'abc'), autoSpot([], 'xyz'));
+});
+
+test('placeAll: 고른 자리는 그대로, 없는 것만 예전 방식으로 채운다', () => {
+  const out = placeAll([
+    { id: 'a', x: 44, y: 90 },
+    { id: 'b' },                       // 자리 없음
+    { id: 'c', x: 58, y: 70 },
+    { id: 'd', x: 999, y: 999 },       // 엉뚱한 값은 가지 안으로 끌어온다
+  ]);
+  assert.deepEqual({ x: out[0].x, y: out[0].y }, { x: 44, y: 90 });
+  assert.deepEqual({ x: out[2].x, y: out[2].y }, { x: 58, y: 70 });
+  assert.ok(Number.isFinite(out[1].x) && Number.isFinite(out[1].y));
+  assert.ok(Math.abs(out[3].x - 50) <= tierHalfAt(out[3].y) + 1e-9);
+  for (const p of out) assert.equal(p.w, ORN_W);
+});
+
+test('placeAll: 편지가 늘어도 이미 걸린 것은 움직이지 않는다', () => {
+  const first = placeAll([{ id: 'a', x: 44, y: 90 }]);
+  const later = placeAll([{ id: 'a', x: 44, y: 90 }, ...ids(200).map((id, i) => ({ id, x: 40 + i % 20, y: 40 + i % 60 }))]);
+  assert.deepEqual(first[0], later[0]);
 });

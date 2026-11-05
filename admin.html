@@ -519,6 +519,9 @@ async function loadLetters() {
         body: v.body || '',
         ornament: v.ornament || '',
         hidden: !!v.hidden,
+        // 학생이 고른 자리. 다시 달 때 그대로 되살리려고 들고 있는다.
+        x: Number.isFinite(v.x) ? v.x : null,
+        y: Number.isFinite(v.y) ? v.y : null,
         createdAt: v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : 0,
       };
     });
@@ -607,11 +610,14 @@ $('#lList').addEventListener('click', async e => {
     } else if (act === 'show') {
       const batch = writeBatch(db);
       batch.update(doc(db, C_LETTERS, id), { hidden: false });
-      // 걸린 순서를 지키려고 원래 시각을 그대로 되살린다
-      batch.set(doc(db, C_ORNAMENTS, id), {
+      /* 걸린 순서와 자리를 그대로 되살린다. 자리를 빼먹으면 학생이 골라 둔 곳이
+         아니라 자동으로 잡아 주는 자리로 옮겨 가 버린다. */
+      const back = {
         ornament: l.ornament,
         createdAt: l.createdAt ? new Date(l.createdAt) : serverTimestamp(),
-      });
+      };
+      if (l.x != null && l.y != null) { back.x = l.x; back.y = l.y; }
+      batch.set(doc(db, C_ORNAMENTS, id), back);
       await batch.commit();
       l.hidden = false;
     } else if (act === 'del') {
