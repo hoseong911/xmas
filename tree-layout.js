@@ -213,18 +213,25 @@ export function clampSpot(x, y, w = ORN_W) {
 
 /**
  * 찍은 자리가 이미 걸린 오너먼트와 너무 겹치면 가까운 빈자리로 밀어 준다.
- * 트리가 꽉 차 밀 데가 없으면 찍은 자리를 그대로 쓴다(겹쳐 달린다).
+ *
+ * **멀리 밀지 않는 것이 중요하다.** 빈자리를 끝까지 찾아 주게 두었더니 빽빽한
+ * 트리에서는 찍은 데서 트리 폭의 4분의 1만큼 날아가, 학생이 보기엔 엉뚱한 데
+ * 달린 것이 된다. 자리를 고르게 한 뜻이 사라진다. 그래서 오너먼트 하나 반만큼만
+ * 찾아보고, 그 안에 빈 데가 없으면 찍은 자리에 그냥 겹쳐 단다.
+ * 막으려던 것은 "똑같은 자리에 완전히 포개지는 것"뿐이다.
+ *
  * @param {{x:number,y:number}[]} taken 이미 걸린 자리들
  */
 export function nudgeFree(x, y, taken, w = ORN_W) {
   const near = w * 0.62;                 // 이보다 가까우면 겹친 것으로 본다
+  const maxPush = w * 1.4;               // 밀어 줄 수 있는 가장 먼 거리
   const free = (px, py) => !taken.some(t =>
     Math.hypot((t.x || 0) - px, (t.y || 0) - py) < near);
 
-  let spot = clampSpot(x, y, w);
+  const spot = clampSpot(x, y, w);
   if (free(spot.x, spot.y)) return spot;
 
-  for (let r = near * 0.8; r <= 30; r += near * 0.55) {
+  for (let r = near * 0.8; r <= maxPush; r += near * 0.45) {
     // 반지름마다 각도를 틀어 늘 같은 방향으로만 밀리지 않게 한다
     const turn = r * 1.7;
     for (let i = 0; i < 18; i++) {

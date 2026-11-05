@@ -241,3 +241,18 @@ test('placeAll: 편지가 늘어도 이미 걸린 것은 움직이지 않는다'
   const later = placeAll([{ id: 'a', x: 44, y: 90 }, ...ids(200).map((id, i) => ({ id, x: 40 + i % 20, y: 40 + i % 60 }))]);
   assert.deepEqual(first[0], later[0]);
 });
+
+test('nudgeFree: 찍은 자리에서 멀리 날아가지 않는다', () => {
+  // 트리를 빽빽하게 채워 두고 한가운데를 찍어 본다
+  const taken = [];
+  for (let y = TREE.firstRowY; y <= TREE.baseY; y += 3) {
+    for (let x = 50 - tierHalfAt(y); x <= 50 + tierHalfAt(y); x += 3) taken.push({ x, y });
+  }
+  for (const [px, py] of [[50, 60], [42, 90], [58, 105], [50, 30]]) {
+    const s = nudgeFree(px, py, taken);
+    const want = clampSpot(px, py);
+    const moved = Math.hypot(s.x - want.x, s.y - want.y);
+    assert.ok(moved <= ORN_W * 1.5,
+      `(${px},${py}) 에서 ${moved.toFixed(1)} 만큼 밀렸다 (오너먼트 너비 ${ORN_W})`);
+  }
+});
