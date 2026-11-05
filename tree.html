@@ -41,6 +41,12 @@
     }
     .xm-corner:hover, .xm-corner:focus-within { opacity: 1 }
 
+    /* 폰에서는 구석 버튼이 아래 문구를 덮는다 */
+    @media (max-width: 600px) {
+      .xm-corner { right: 10px; bottom: 10px }
+      .xm-treefoot { padding-bottom: 42px }
+    }
+
     /* 트리가 아직 비었을 때 */
     .xm-treeempty {
       position: absolute; left: 0; right: 0; top: 46%;
@@ -64,25 +70,16 @@
     </div>
 
     <div class="xm-treewrap" id="wrap">
+      <!-- 가지와 별은 tree-layout.js의 TIERS에서 그린다(자리 계산과 같은 파일이라 어긋나지 않는다) -->
       <svg viewBox="0 0 100 130" preserveAspectRatio="xMidYMid meet" aria-label="크리스마스트리">
-        <!-- 바닥에 쌓인 눈 -->
-        <path d="M0 127Q14 119 27 123T52 121 76 124 100 120V130H0Z" fill="#dceaf7" opacity=".10"/>
-        <ellipse cx="50" cy="121" rx="30" ry="5" fill="#dceaf7" opacity=".07"/>
+        <!-- 바닥에 쌓인 눈. 가로로 꽉 찬 띠를 쓰면 트리 칸 가장자리에서 네모로 뚝 잘려
+             바닥이 아니라 상자처럼 보인다. 양끝이 자연히 사라지는 타원으로 둔다. -->
+        <ellipse cx="50" cy="128" rx="46" ry="7.5" fill="#dceaf7" opacity=".10"/>
+        <ellipse cx="50" cy="125" rx="30" ry="5" fill="#dceaf7" opacity=".07"/>
         <!-- 기둥 -->
-        <rect x="45" y="104" width="10" height="17" rx="2.5" fill="#5b4029"/>
-        <!-- 가지 세 단 (아래부터 그려 위 단이 덮게 한다) -->
-        <path d="M50 50 L13 112 Q50 122 87 112 Z" fill="#1b4e3b"/>
-        <path d="M50 26 L22 84 Q50 93 78 84 Z" fill="#236048"/>
-        <path d="M50 6  L31 52 Q50 59 69 52 Z" fill="#2b7152"/>
-        <!-- 가지에 걸린 작은 전구 줄 -->
-        <g fill="#f7d479" opacity=".55">
-          <circle cx="40" cy="40" r=".9"/><circle cx="57" cy="44" r=".9"/>
-          <circle cx="31" cy="68" r=".9"/><circle cx="48" cy="73" r=".9"/><circle cx="66" cy="69" r=".9"/>
-          <circle cx="23" cy="97" r=".9"/><circle cx="41" cy="103" r=".9"/>
-          <circle cx="60" cy="101" r=".9"/><circle cx="76" cy="96" r=".9"/>
-        </g>
-        <!-- 꼭대기 별 -->
-        <path id="topStar" fill="#f0c457"/>
+        <rect x="45.5" y="112" width="9" height="13" rx="3" fill="#6b4a2e"/>
+        <rect x="45.5" y="112" width="3.2" height="13" rx="1.6" fill="#80593a"/>
+        <g id="treeArt"></g>
       </svg>
       <div class="xm-orns" id="orns"></div>
       <div class="xm-treeempty" id="treeEmpty" hidden>아직 달린 편지가 없어요.<br>첫 번째 마음을 달아 주세요.</div>
@@ -100,22 +97,74 @@ import { collection, onSnapshot, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, C_ORNAMENTS, watchConfig, esc, mountSnow } from "./xmas-core.js";
 import { ornamentSVG } from "./ornaments.js";
-import { layout, TREE } from "./tree-layout.js";
+import { layout, TREE, TIERS, tierPath, starPath } from "./tree-layout.js";
 
 const $ = s => document.querySelector(s);
 
 mountSnow($('#snow'), 90);
 
-// 꼭대기 별 — ornaments.js와 같은 계산을 쓰지 않고 여기서 한 번만 그린다
-(function drawTopStar() {
-  const cx = 50, cy = 8, ro = 7.6, ri = 3.2, pts = [];
-  for (let i = 0; i < 5; i++) {
-    const ao = (-90 + i * 72) * Math.PI / 180;
-    const ai = (-54 + i * 72) * Math.PI / 180;
-    pts.push(`${(cx + ro * Math.cos(ao)).toFixed(2)} ${(cy + ro * Math.sin(ao)).toFixed(2)}`);
-    pts.push(`${(cx + ri * Math.cos(ai)).toFixed(2)} ${(cy + ri * Math.sin(ai)).toFixed(2)}`);
+/* ── 트리 그리기 ───────────────────────────────────────────────
+   가지는 아래 단부터 그린다. 그래야 위 단의 물결진 밑자락이 아래 단을 덮으며
+   층이 겹쳐 보인다(거꾸로 그리면 위 단이 가려져 밋밋한 삼각형이 된다).
+   단마다 같은 모양을 조금 아래로 민 짙은 사본을 먼저 깔아 그림자를 만든다. */
+(function drawTree() {
+  const art = $('#treeArt');
+  const ns = 'http://www.w3.org/2000/svg';
+  const add = (tag, attrs) => {
+    const el = document.createElementNS(ns, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    art.appendChild(el);
+    return el;
+  };
+
+  for (let i = TIERS.length - 1; i >= 0; i--) {
+    const t = TIERS[i];
+    add('path', { d: tierPath(t, 2.2), fill: t.shade });          // 아래 단에 지는 그림자
+    add('path', { d: tierPath(t), fill: t.fill });                // 가지
+    // 물결진 밑자락에 걸린 눈
+    add('path', {
+      d: tierPath(t, -1.1), fill: 'none',
+      stroke: '#eafaff', 'stroke-width': 0.9, 'stroke-opacity': 0.22,
+      'stroke-linejoin': 'round',
+    });
   }
-  $('#topStar').setAttribute('d', `M${pts.join('L')}Z`);
+
+  // 가지에 걸린 작은 전구. 단마다 지그재그로 흩어 둔다.
+  const bulbs = [
+    [41, 36], [57, 39],
+    [33, 60], [49, 65], [64, 61],
+    [27, 86], [43, 91], [59, 89], [73, 84],
+    [22, 110], [38, 114], [55, 113], [70, 110], [78, 105],
+  ];
+  const bulbColors = ['#ffd978', '#ffe9b0', '#ffc9a0'];
+  bulbs.forEach(([x, y], i) => {
+    add('circle', { cx: x, cy: y, r: 1.15, fill: bulbColors[i % 3], 'fill-opacity': 0.75 });
+  });
+
+  /* 꼭대기 별.
+     바깥에 옅은 별을 한 겹 더 까는 방식은 버렸다 — 어두운 밤하늘 위에서
+     낮은 불투명도의 금색이 회색 테두리처럼 보여 빛이 아니라 그림자가 됐다.
+     지금은 가운데가 밝고 가장자리로 사라지는 둥근 빛을 뒤에 깐다.
+     (오너먼트와 달리 트리는 화면에 하나뿐이라 그라데이션 id를 써도 안 엉킨다.)
+     빛이 viewBox 위로 삐져나가면 거기서 뚝 잘려 네모 자국이 생긴다.
+     그래서 별을 조금 내리고 빛 반지름을 위쪽 여백 안에 맞췄다(cy - r >= 0). */
+  const STAR_Y = 11, GLOW_R = 11;
+  const defs = document.createElementNS(ns, 'defs');
+  const grad = document.createElementNS(ns, 'radialGradient');
+  grad.setAttribute('id', 'xmStarGlow');
+  [['0%', '#ffe9a8', '.6'], ['45%', '#f0c457', '.24'], ['100%', '#f0c457', '0']]
+    .forEach(([off, col, op]) => {
+      const s = document.createElementNS(ns, 'stop');
+      s.setAttribute('offset', off);
+      s.setAttribute('stop-color', col);
+      s.setAttribute('stop-opacity', op);
+      grad.appendChild(s);
+    });
+  defs.appendChild(grad);
+  art.appendChild(defs);
+  add('circle', { cx: 50, cy: STAR_Y, r: GLOW_R, fill: 'url(#xmStarGlow)' });
+  add('path', { d: starPath(50, STAR_Y, 8.4, 3.5), fill: '#f7d479' });
+  add('path', { d: starPath(50, STAR_Y - 0.5, 4.2, 1.8), fill: '#fff6d8', 'fill-opacity': 0.9 });
 })();
 
 watchConfig(c => {

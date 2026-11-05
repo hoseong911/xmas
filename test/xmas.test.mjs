@@ -93,3 +93,55 @@ test('layout: 같은 편지는 늘 같은 자리에 걸린다', () => {
   const b = layout(ids(50));
   assert.deepEqual(a, b);
 });
+
+// ── 트리 그림과 오너먼트 자리가 어긋나지 않는지 ─────────────────
+import { TIERS, tierPath, tierHalfAt, starPath } from '../tree-layout.js';
+
+test('TIERS: 위에서 아래로 넓어지고 겹쳐 있다', () => {
+  for (let i = 1; i < TIERS.length; i++) {
+    assert.ok(TIERS[i].half > TIERS[i - 1].half, `${i}번째 단이 더 좁다`);
+    // 다음 단의 꼭대기가 앞 단 밑보다 위에 있어야 가지가 끊기지 않는다
+    assert.ok(TIERS[i].apexY < TIERS[i - 1].baseY, `${i}번째 단이 앞 단과 떨어져 있다`);
+  }
+  assert.equal(TIERS[0].apexY, TREE.apexY);
+  assert.equal(TIERS[TIERS.length - 1].baseY, TREE.baseY);
+  assert.equal(TIERS[TIERS.length - 1].half, TREE.baseHalf);
+});
+
+test('tierPath: 쓸 수 있는 path가 나온다', () => {
+  for (const t of TIERS) {
+    const d = tierPath(t);
+    assert.match(d, /^M50 \d/);
+    assert.ok(d.endsWith('Z'));
+    assert.ok(!/NaN|undefined/.test(d), d);
+    // 물결 개수만큼 호가 들어 있다
+    assert.equal((d.match(/a[\d.]+ /g) || []).length, t.scallops);
+  }
+});
+
+test('starPath: 꼭지 다섯 개짜리 닫힌 길이 나온다', () => {
+  const d = starPath(50, 9, 8, 3.4);
+  assert.ok(d.startsWith('M') && d.endsWith('Z'));
+  assert.equal(d.split('L').length, 10);   // 바깥 5 + 안쪽 5
+  assert.ok(!/NaN/.test(d));
+});
+
+test('오너먼트를 거는 띠가 실제 가지 안에 들어온다', () => {
+  // 첫 줄부터 맨 아랫줄까지 훑으며, 거는 띠(halfWidthAt)가 그림(tierHalfAt)을 넘지 않는지 본다.
+  let worst = 0, worstY = 0;
+  for (let y = TREE.firstRowY; y <= TREE.baseY; y += 0.5) {
+    const over = halfWidthAt(y) - tierHalfAt(y);
+    if (over > worst) { worst = over; worstY = y; }
+  }
+  // 물결이 밑단 아래로 더 내려와 있어 1 단위(트리 폭의 1%) 안쪽이면 눈에 안 띈다
+  assert.ok(worst <= 1, `y=${worstY} 에서 ${worst.toFixed(2)} 만큼 가지 밖으로 나간다`);
+});
+
+test('layout: 모든 오너먼트가 가지 위에 걸린다', () => {
+  for (const n of [1, 10, 50, 161, 400]) {
+    for (const o of layout(ids(n))) {
+      assert.ok(Math.abs(o.x - 50) <= tierHalfAt(o.y) + 1,
+        `${n}통: x=${o.x.toFixed(1)} y=${o.y.toFixed(1)} 가지 반폭=${tierHalfAt(o.y).toFixed(1)}`);
+    }
+  }
+});

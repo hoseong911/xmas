@@ -339,19 +339,15 @@
 .xm-opick svg { width: 100%; max-width: 62px; height: auto }
 
 /* ── 트리 ─────────────────────────────────────────────────────── */
+/* 트리는 가로와 세로 둘 중 먼저 막히는 쪽에 맞춘다.
+   폭만 100%로 두면 세로로 긴 화면에서 트리 높이가 화면을 넘어 밑동이 잘린다.
+   aspect-ratio가 높이를 폭에서 끌어내므로 **폭 하나만** 정해 주면 둘 다 맞는다. */
 .xm-treewrap {
   position: relative;
   aspect-ratio: 100 / 130;
-  width: auto;
-  height: min(76vh, 920px);
-  max-width: 100%;
-  /* 가로가 먼저 막히는 화면(폰)에서는 트리가 작아지고 아래가 휑해진다.
-     남는 자리를 위아래로 나눠 가운데에 둔다. */
+  width: min(100%, 78vh * 100 / 130);
+  /* 남는 자리를 위아래로 나눠 가운데에 둔다(폰에서 아래가 휑해지지 않게) */
   margin: auto;
-}
-/* 세로로 긴 화면(폰)에서는 폭이 먼저 막힌다 */
-@media (max-aspect-ratio: 100/130) {
-  .xm-treewrap { width: 100%; height: auto }
 }
 .xm-treewrap > svg {
   position: absolute;
