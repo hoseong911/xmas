@@ -1,0 +1,11 @@
+{
+  "name": "xmas-letter-tree",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "preview": "node tools/preview-server.js"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.3.0"
+  }
+}
