@@ -7,10 +7,63 @@
    그래서 콘텐츠 그림으로 보고 이 파일에 따로 모았다(j_brain의 머리 그림과 같은 취급).
    화면의 UI 아이콘은 언제나 `shared/icons.js`를 쓴다.
 
-   · 좌표계는 모두 viewBox "0 0 64 80" — 위쪽 y 2~16이 고리와 끈 자리다.
-   · id나 <defs>를 쓰지 않는다. 한 화면에 수백 개가 같이 뜨므로 id가 겹치면
-     그라데이션이 서로 엉킨다(그래서 그라데이션 없이 납작한 색 + 하이라이트).
+   좌표계는 모두 viewBox "0 0 64 80" — 위쪽 y 2~16이 고리와 끈 자리다.
+
+   ── 빛을 입히는 방법 (2026-11-05) ──────────────────────────────
+   처음에는 납작한 단색으로만 그렸다. 한 화면에 수백 개가 뜨는데 오너먼트마다
+   <defs>를 넣으면 id가 겹쳐 그라데이션이 서로 엉키기 때문이었다.
+
+   지금은 **그라데이션을 문서에 딱 한 벌만 두고 모두가 그걸 가리킨다.**
+   id는 문서 전체에서 하나면 되므로 겹칠 일이 없고, objectBoundingBox 기준이라
+   크기와 자리가 제각각인 도형에 저마다 알아서 맞는다.
+   `ensureDefs()`가 첫 그림을 그릴 때 숨은 <svg> 하나를 문서에 붙이므로
+   화면 쪽에서 따로 챙길 것은 없다.
+
+   **오너먼트 안에 <defs>나 id를 새로 넣지 말 것.** 수백 개가 뜨는 순간
+   예전 문제가 그대로 돌아온다. 빛이 더 필요하면 아래 GRADIENTS에 한 줄 더한다.
    ════════════════════════════════════════════════════════════════ */
+
+// ── 모두가 같이 쓰는 빛 ──────────────────────────────────────────
+
+const DEFS_HOST_ID = 'xm-orn-defs';
+
+const GRADIENTS = `
+  <!-- 왼쪽 위에서 들어오는 빛. 살짝 따뜻하게 두어 밤하늘 아래서 차가워 보이지 않게 한다. -->
+  <radialGradient id="xmSheen" cx="0.34" cy="0.26" r="0.82">
+    <stop offset="0"    stop-color="#fffaf0" stop-opacity=".62"/>
+    <stop offset="0.38" stop-color="#fffaf0" stop-opacity=".16"/>
+    <stop offset="1"    stop-color="#fffaf0" stop-opacity="0"/>
+  </radialGradient>
+  <!-- 반대편에 지는 그늘. 이게 있어야 납작해 보이지 않는다. -->
+  <radialGradient id="xmShade" cx="0.72" cy="0.84" r="0.78">
+    <stop offset="0"    stop-color="#1b1205" stop-opacity=".36"/>
+    <stop offset="0.55" stop-color="#1b1205" stop-opacity=".12"/>
+    <stop offset="1"    stop-color="#1b1205" stop-opacity="0"/>
+  </radialGradient>
+  <!-- 선으로 그린 것(지팡이 사탕, 눈송이)에 쓰는 위아래 빛 -->
+  <linearGradient id="xmSheenLine" x1="0.15" y1="0" x2="0.7" y2="1">
+    <stop offset="0"   stop-color="#fffaf0" stop-opacity=".5"/>
+    <stop offset="0.5" stop-color="#fffaf0" stop-opacity=".05"/>
+    <stop offset="1"   stop-color="#1b1205" stop-opacity=".2"/>
+  </linearGradient>
+  <!-- 금색 장식이 머금는 은은한 둘레 빛 -->
+  <radialGradient id="xmHalo" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0.45" stop-color="#ffd98a" stop-opacity=".30"/>
+    <stop offset="0.75" stop-color="#ffd98a" stop-opacity=".10"/>
+    <stop offset="1"    stop-color="#ffd98a" stop-opacity="0"/>
+  </radialGradient>`;
+
+/** 그라데이션 한 벌을 문서에 한 번만 붙인다. */
+function ensureDefs() {
+  if (typeof document === 'undefined') return;        // node 테스트에서 불려도 안전하게
+  if (document.getElementById(DEFS_HOST_ID)) return;
+  const host = document.createElement('div');
+  host.id = DEFS_HOST_ID;
+  host.setAttribute('aria-hidden', 'true');
+  host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+  host.innerHTML = `<svg width="0" height="0" focusable="false"><defs>${GRADIENTS}</defs></svg>`;
+  (document.body || document.documentElement).appendChild(host);
+}
 
 // ── 공통 조각 ────────────────────────────────────────────────────
 
@@ -22,7 +75,21 @@ const hook = (color = '#e6d5a8') =>
 // 방울과 종 머리에 끼우는 금색 마개
 const cap = (color = '#d9b35c') =>
   `<rect x="26" y="14" width="12" height="8" rx="2.5" fill="${color}"/>` +
-  `<rect x="28.5" y="16" width="7" height="2.4" rx="1.2" fill="#f3e2b4"/>`;
+  `<rect x="28.5" y="16" width="7" height="2.4" rx="1.2" fill="#f3e2b4"/>` +
+  `<rect x="26" y="14" width="12" height="8" rx="2.5" fill="url(#xmShade)"/>`;
+
+/**
+ * 같은 도형을 빛과 그늘로 두 번 덧칠한다.
+ * @param {string} shape 속성 자리에 `FILL`을 끼워 둔 도형 조각
+ *   예) '<circle cx="32" cy="50" r="23" FILL/>'
+ */
+const gloss = (shape) =>
+  shape.replace('FILL', 'fill="url(#xmSheen)"') +
+  shape.replace('FILL', 'fill="url(#xmShade)"');
+
+// 반짝 하고 튀는 점 하나. 빛이 모이는 자리를 또렷하게 찍어 준다.
+const spark = (cx, cy, rx, ry, rot = -28, op = 0.6) =>
+  `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fff" opacity="${op}" transform="rotate(${rot} ${cx} ${cy})"/>`;
 
 // 꼭지점 5개 별. 별 오너먼트와 금빛 방울의 무늬가 같이 쓴다.
 function starPath(cx, cy, ro, ri) {
@@ -36,12 +103,14 @@ function starPath(cx, cy, ro, ri) {
   return `M${pts.join('L')}Z`;
 }
 
-// 둥근 방울 하나. deco로 무늬를 얹는다.
+// 둥근 방울 하나. 무늬를 먼저 얹고 그 위에 빛을 비춘다(무늬에도 빛이 걸려야 한다).
+const BALL_SHAPE = '<circle cx="32" cy="50" r="23" FILL/>';
 const ball = (base, deco = '') =>
   hook() + cap() +
-  `<circle cx="32" cy="50" r="23" fill="${base}"/>` +
-  `<ellipse cx="23.5" cy="40" rx="6.5" ry="4.2" fill="#fff" opacity=".38" transform="rotate(-28 23.5 40)"/>` +
-  deco;
+  BALL_SHAPE.replace('FILL', `fill="${base}"`) +
+  deco +
+  gloss(BALL_SHAPE) +
+  spark(23, 39.5, 5.8, 3.8);
 
 // 눈송이 가지 하나를 60도씩 여섯 번 돌려 붙인다.
 function snowArms() {
@@ -58,6 +127,13 @@ function snowArms() {
 
 // ── 오너먼트 10종 ───────────────────────────────────────────────
 
+const BELL_SHAPE = '<path d="M32 21c-8.5 0-11.8 6-12.4 14.2C19 44 16.2 50 12.8 53.4h38.4C47.8 50 45 44 44.4 35.2 43.8 27 40.5 21 32 21Z" FILL/>';
+const SOCK_SHAPE = '<path d="M21.5 28h20v18c0 2.6 1.3 4 3.8 5.1l7.2 3.3c4.6 2.1 5.4 7.9 1.3 10.8-3.3 2.3-7.4 1.6-10.6-.5l-16-10.4c-3.6-2.3-5.7-5.7-5.7-10.1V28Z" FILL/>';
+const HEART_SHAPE = '<path d="M32 74S9 58.5 9 40.5C9 32 15.6 25.6 23.4 25.6c4 0 7 1.7 8.6 4.2 1.6-2.5 4.6-4.2 8.6-4.2C48.4 25.6 55 32 55 40.5 55 58.5 32 74 32 74Z" FILL/>';
+const CANE_PATH = 'M22 73V39a11 11 0 0 1 22 0';
+const GIFT_BODY = '<rect x="15" y="38" width="34" height="31" rx="3" FILL/>';
+const GIFT_LID  = '<rect x="11" y="28" width="42" height="11" rx="3" FILL/>';
+
 const DEFS = [
   {
     key: 'ball_red', name: '빨간 방울', glow: '#e4635a',
@@ -71,57 +147,75 @@ const DEFS = [
   },
   {
     key: 'ball_gold', name: '금빛 방울', glow: '#f0c457',
-    body: ball('#e8b341',
-      `<path d="${starPath(32, 52, 10, 4.3)}" fill="#fdf6e8" opacity=".95"/>`)
+    body: `<circle cx="32" cy="50" r="30" fill="url(#xmHalo)"/>` +
+      ball('#e8b341', `<path d="${starPath(32, 52, 10, 4.3)}" fill="#fdf6e8" opacity=".95"/>`)
   },
   {
     key: 'star', name: '별', glow: '#f7d479',
-    body: hook('#e0b94f') +
+    body: `<circle cx="32" cy="48" r="31" fill="url(#xmHalo)"/>` +
+      hook('#e0b94f') +
       `<path d="${starPath(32, 48, 25, 10.5)}" fill="#f0c457"/>` +
-      `<path d="${starPath(32, 48, 13, 5.5)}" fill="#fdf6e8" opacity=".55"/>`
+      `<path d="${starPath(32, 48, 13, 5.5)}" fill="#fdf6e8" opacity=".5"/>` +
+      gloss(`<path d="${starPath(32, 48, 25, 10.5)}" FILL/>`) +
+      spark(24, 40, 3.6, 2.2, -30, 0.55)
   },
   {
     key: 'bell', name: '종', glow: '#f0c457',
-    body: hook('#d9a832') + cap('#d9a832') +
-      `<path d="M32 21c-8.5 0-11.8 6-12.4 14.2C19 44 16.2 50 12.8 53.4h38.4C47.8 50 45 44 44.4 35.2 43.8 27 40.5 21 32 21Z" fill="#f0c457"/>` +
+    body: `<circle cx="32" cy="46" r="29" fill="url(#xmHalo)"/>` +
+      hook('#d9a832') + cap('#d9a832') +
+      BELL_SHAPE.replace('FILL', 'fill="#f0c457"') +
       `<rect x="11" y="52" width="42" height="8" rx="4" fill="#deaa38"/>` +
       `<circle cx="32" cy="66" r="5.5" fill="#deaa38"/>` +
-      `<path d="M21.5 26q10.5 5 21 0" fill="none" stroke="#d94f45" stroke-width="3.4" stroke-linecap="round"/>`
+      `<circle cx="32" cy="66" r="5.5" fill="url(#xmSheen)"/>` +
+      `<path d="M21.5 26q10.5 5 21 0" fill="none" stroke="#d94f45" stroke-width="3.4" stroke-linecap="round"/>` +
+      gloss(BELL_SHAPE) +
+      spark(24, 34, 3.4, 5.2, -14, 0.42)
   },
   {
     key: 'sock', name: '양말', glow: '#e4635a',
     body: hook() +
-      `<path d="M21.5 28h20v18c0 2.6 1.3 4 3.8 5.1l7.2 3.3c4.6 2.1 5.4 7.9 1.3 10.8-3.3 2.3-7.4 1.6-10.6-.5l-16-10.4c-3.6-2.3-5.7-5.7-5.7-10.1V28Z" fill="#d94f45"/>` +
+      SOCK_SHAPE.replace('FILL', 'fill="#d94f45"') +
       `<rect x="18" y="19.5" width="27" height="10" rx="3.5" fill="#fdf6e8"/>` +
-      `<path d="M23 38.5h17" stroke="#fdf6e8" stroke-width="3.6" stroke-linecap="round" opacity=".8"/>`
+      `<rect x="18" y="19.5" width="27" height="10" rx="3.5" fill="url(#xmShade)"/>` +
+      `<path d="M23 38.5h17" stroke="#fdf6e8" stroke-width="3.6" stroke-linecap="round" opacity=".8"/>` +
+      gloss(SOCK_SHAPE)
   },
   {
     key: 'candy', name: '지팡이 사탕', glow: '#ef7a70',
     // 지팡이는 스스로 가지에 걸리므로 고리를 달지 않는다.
-    body: `<path d="M22 73V39a11 11 0 0 1 22 0" fill="none" stroke="#fdf6e8" stroke-width="12" stroke-linecap="round"/>` +
-      `<path d="M22 73V39a11 11 0 0 1 22 0" fill="none" stroke="#d94f45" stroke-width="12" stroke-dasharray="7 7.5"/>`
+    body: `<path d="${CANE_PATH}" fill="none" stroke="#fdf6e8" stroke-width="12" stroke-linecap="round"/>` +
+      `<path d="${CANE_PATH}" fill="none" stroke="#d94f45" stroke-width="12" stroke-dasharray="7 7.5"/>` +
+      `<path d="${CANE_PATH}" fill="none" stroke="url(#xmSheenLine)" stroke-width="12" stroke-linecap="round"/>`
   },
   {
     key: 'gift', name: '선물', glow: '#49b185',
     body: hook() +
       `<path d="M30 28C24 28 18 26 15.5 23c-2-2.4.3-5.3 3.4-4.3C22.8 19.9 27 23.4 30 28Z" fill="#e4635a"/>` +
       `<path d="M34 28C40 28 46 26 48.5 23c2-2.4-.3-5.3-3.4-4.3C41.2 19.9 37 23.4 34 28Z" fill="#e4635a"/>` +
-      `<rect x="11" y="28" width="42" height="11" rx="3" fill="#3b9d74"/>` +
-      `<rect x="15" y="38" width="34" height="31" rx="3" fill="#2f7d5a"/>` +
+      GIFT_LID.replace('FILL', 'fill="#3b9d74"') +
+      GIFT_BODY.replace('FILL', 'fill="#2f7d5a"') +
+      gloss(GIFT_BODY) +
+      GIFT_LID.replace('FILL', 'fill="url(#xmSheen)"') +
       `<rect x="28" y="28" width="8" height="41" fill="#f0c457"/>` +
+      `<rect x="28" y="28" width="8" height="41" fill="url(#xmSheenLine)"/>` +
       `<circle cx="32" cy="26.5" r="3.4" fill="#d94f45"/>`
   },
   {
     key: 'snow', name: '눈송이', glow: '#bfe4f5',
-    body: hook('#cfe8f6') +
+    body: `<circle cx="32" cy="48" r="30" fill="url(#xmHalo)" opacity=".5"/>` +
+      hook('#cfe8f6') +
+      // 같은 모양을 굵고 흐리게 한 겹 깔면 선 둘레에 빛이 번진 것처럼 보인다
+      `<g stroke="#dff2ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".16">${snowArms()}</g>` +
       `<g stroke="#cfe8f6" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none">${snowArms()}</g>` +
+      `<g stroke="url(#xmSheenLine)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none">${snowArms()}</g>` +
       `<circle cx="32" cy="48" r="3.6" fill="#eaf7ff"/>`
   },
   {
     key: 'heart', name: '하트', glow: '#f0889f',
     body: hook('#f0c457') +
-      `<path d="M32 74S9 58.5 9 40.5C9 32 15.6 25.6 23.4 25.6c4 0 7 1.7 8.6 4.2 1.6-2.5 4.6-4.2 8.6-4.2C48.4 25.6 55 32 55 40.5 55 58.5 32 74 32 74Z" fill="#e8738f"/>` +
-      `<ellipse cx="22" cy="38" rx="5" ry="3.4" fill="#fff" opacity=".4" transform="rotate(-30 22 38)"/>`
+      HEART_SHAPE.replace('FILL', 'fill="#e8738f"') +
+      gloss(HEART_SHAPE) +
+      spark(22.5, 38, 4.4, 2.9, -30, 0.55)
   },
 ];
 
@@ -139,6 +233,7 @@ export function isOrnamentKey(key) {
 
 /** 오너먼트 한 개를 <svg> 문자열로 만든다. 없는 키는 빨간 방울로 대체한다. */
 export function ornamentSVG(key, size = 64, cls = '') {
+  ensureDefs();
   const d = BY_KEY[key] || DEFS[0];
   const h = Math.round(size * 80 / 64);
   return `<svg class="xm-orn${cls ? ' ' + cls : ''}" width="${size}" height="${h}" ` +
@@ -152,4 +247,9 @@ export function ornamentName(key) {
 /** 반짝임과 테두리 빛에 쓰는 대표 색 */
 export function ornamentGlow(key) {
   return (BY_KEY[key] || DEFS[0]).glow;
+}
+
+/** 빛 그라데이션 묶음. 화면이 직접 심고 싶을 때만 쓴다(보통은 저절로 붙는다). */
+export function ornamentDefsMarkup() {
+  return `<defs>${GRADIENTS}</defs>`;
 }
