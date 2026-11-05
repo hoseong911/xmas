@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="shared/theme.css">
   <link rel="stylesheet" href="shared/admin-base.css">
+  <!-- 엑셀 읽기와 쓰기. hoistory의 다른 어드민과 같은 판을 쓴다. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     body { margin: 0; background: var(--hi-bg-base); font-family: 'Pretendard', sans-serif; color: var(--hi-text) }
     #adminApp { display: none }
@@ -74,6 +76,43 @@
       font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.8;
     }
     .link-row { display: flex; gap: 8px; flex-wrap: wrap }
+
+    /* ── 엑셀 올리기 ── */
+    .xl-drop {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; min-height: 108px; padding: 20px;
+      border: 2px dashed var(--hi-border); border-radius: 16px;
+      background: var(--hi-bg-mid);
+      cursor: pointer; text-align: center;
+      transition: .15s;
+    }
+    .xl-drop:hover, .xl-drop.over { border-color: var(--hi-accent); background: var(--hi-accent-soft) }
+    .xl-drop-t { font-size: 14px; font-weight: 700; color: var(--hi-text-soft) }
+    .xl-drop-s { font-size: 12px; color: var(--hi-text-muted) }
+
+    .xl-over {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 13px; font-weight: 700; color: var(--hi-text-soft);
+      margin-bottom: 10px; cursor: pointer;
+    }
+    .xl-table-wrap { max-height: 380px; overflow: auto; border: 1px solid var(--hi-border-soft); border-radius: 12px }
+    .xl-row {
+      display: grid; grid-template-columns: 1fr 1fr 80px 1.4fr;
+      gap: 10px; align-items: center;
+      padding: 9px 14px; font-size: 13px;
+      border-bottom: 1px solid var(--hi-border-soft);
+    }
+    .xl-row:last-child { border-bottom: none }
+    .xl-row.head { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+                   color: var(--hi-text-muted); position: sticky; top: 0; background: var(--hi-bg-surface) }
+    .xl-row b { font-weight: 700 }
+    .xl-row .pin { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 800; letter-spacing: 1px }
+    .xl-state { font-size: 12px; font-weight: 700 }
+    .xl-state.add  { color: var(--hi-accent) }
+    .xl-state.skip { color: var(--hi-text-muted) }
+    .xl-state.warn { color: var(--hi-warning) }
+    .xl-state.bad  { color: var(--hi-negative) }
+    .xl-row.off { opacity: .55 }
     @media (max-width: 760px) {
       .t-row { grid-template-columns: 1fr auto; row-gap: 6px }
       .t-row > .t-sub, .t-row > .t-count { grid-column: 1 }
@@ -145,6 +184,42 @@
             <button class="mini-btn primary" id="bulkAdd" type="button">한꺼번에 추가</button>
           </div>
           <div class="setting-msg" id="bulkMsg"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">엑셀로 올리기</div>
+              <div class="panel-sub">
+                첫 줄을 제목 줄로 보고 <b>이름 / 담당 / 번호</b> 칸을 찾습니다.
+                번호 칸에 전화번호를 통째로 적어도 뒤 네 자리만 씁니다. 빈칸이면 번호를 만들어 드립니다.
+              </div>
+            </div>
+            <div class="row-actions">
+              <button class="mini-btn" id="xlTemplate" type="button">빈 양식 내려받기</button>
+              <button class="mini-btn" id="xlExport" type="button">지금 명단 내보내기</button>
+            </div>
+          </div>
+
+          <label class="xl-drop" id="xlDrop">
+            <input type="file" id="xlFile" accept=".xlsx,.xls,.csv" hidden>
+            <span class="xl-drop-t">엑셀 파일을 여기에 끌어 놓거나 눌러서 고르세요</span>
+            <span class="xl-drop-s">xlsx, xls, csv</span>
+          </label>
+
+          <div id="xlResult" hidden>
+            <div class="stats-row" id="xlStats" style="margin:16px 0 10px"></div>
+            <label class="xl-over">
+              <input type="checkbox" id="xlOverwrite">
+              이미 있는 분은 담당과 번호를 덮어쓰기
+            </label>
+            <div class="xl-table-wrap"><div id="xlPreview"></div></div>
+            <div class="row-actions" style="margin-top:14px">
+              <button class="mini-btn primary" id="xlApply" type="button">이 목록으로 올리기</button>
+              <button class="mini-btn" id="xlCancel" type="button">취소</button>
+            </div>
+          </div>
+          <div class="setting-msg" id="xlMsg"></div>
         </div>
 
         <div class="panel">
@@ -316,6 +391,15 @@ async function boot() {
   await loadLetters();
 }
 
+/** 파이어베이스 오류를 선생님이 읽을 수 있는 말로 바꾼다 */
+function friendlyErr(e) {
+  const m = String((e && e.message) || e || '');
+  if (/permission|insufficient/i.test(m)) return '권한이 없습니다. 다시 로그인해 주세요';
+  if (/network|offline|unavailable|failed to get/i.test(m)) return '연결이 끊겼습니다. 잠시 뒤 다시 해 주세요';
+  if (/quota|resource-exhausted/i.test(m)) return '잠시 너무 많이 요청했습니다. 조금 뒤에 해 주세요';
+  return m;
+}
+
 function msg(sel, text, ok = true) {
   const el = $(sel);
   el.textContent = text;
@@ -390,7 +474,7 @@ $('#bulkAdd').addEventListener('click', async () => {
   for (const line of lines) {
     const [name, sub] = line.split(/[,\t]/).map(s => (s || '').trim());
     try { await addTeacher(name, sub, ''); ok++; }
-    catch (e) { fail.push(`${name || line} (${e.message})`); leftover.push(line); }
+    catch (e) { fail.push(`${name || line} (${friendlyErr(e)})`); leftover.push(line); }
   }
   renderTeachers(); fillTeacherFilter();
   // 들어간 줄만 지우고 못 들어간 줄은 남겨 둔다(고쳐서 다시 누르면 된다)
@@ -398,6 +482,231 @@ $('#bulkAdd').addEventListener('click', async () => {
   msg('#bulkMsg', fail.length
     ? `${ok}명 추가, ${fail.length}명 건너뜀 — ${fail.join(' / ')}`
     : `${ok}명 추가했어요.`, !fail.length);
+});
+
+/* ── 엑셀로 올리기 ───────────────────────────────────────────────
+   첫 줄을 제목 줄로 보고 이름/담당/번호 칸을 찾는다. 제목을 어떻게 적든
+   알아보게 흔한 표현을 몇 개씩 받아 둔다 — 선생님이 만든 표의 제목을
+   맞춰 쓰라고 요구하는 쪽이 늘 더 귀찮다.
+   올리기 전에 한 줄씩 어떻게 될지(추가/건너뜀/겹침) 보여 주고 확인을 받는다. */
+
+const XL_COL = {
+  name:    ['이름', '성명', '성함', '선생님', '교사', 'name'],
+  subject: ['담당', '과목', '담당과목', '교과', '부서', '업무', 'subject'],
+  pin:     ['번호', '비밀번호', '네자리', '네자리번호', '확인번호', '전화', '전화번호', 'pin'],
+};
+
+const xlNorm = v => String(v == null ? '' : v).replace(/\s/g, '').toLowerCase();
+
+/** 제목 줄에서 각 칸이 몇 번째인지 찾는다 */
+function xlFindCols(header) {
+  const idx = { name: -1, subject: -1, pin: -1 };
+  header.forEach((h, i) => {
+    const n = xlNorm(h);
+    if (!n) return;
+    for (const key of ['name', 'subject', 'pin']) {
+      if (idx[key] >= 0) continue;
+      if (XL_COL[key].some(w => n === w || n.startsWith(w))) idx[key] = i;
+    }
+  });
+  return idx;
+}
+
+/** 전화번호를 통째로 적어도 뒤 네 자리만 쓴다 */
+function xlPin(v) {
+  const d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (!d) return '';
+  return d.length >= 4 ? d.slice(-4) : '';
+}
+
+let xlRows = [];          // 미리보기에 띄운 줄들
+
+function xlRead(file) {
+  if (typeof XLSX === 'undefined') {
+    msg('#xlMsg', '엑셀을 읽는 도구를 불러오지 못했습니다. 새로고침해 주세요.', false);
+    return;
+  }
+  const fr = new FileReader();
+  fr.onload = ev => {
+    let rows;
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    } catch (e) {
+      console.error(e);
+      msg('#xlMsg', '엑셀을 읽지 못했습니다. 파일을 확인해 주세요.', false);
+      return;
+    }
+    rows = rows.filter(r => r.some(c => String(c).trim()));
+    if (rows.length < 2) { msg('#xlMsg', '표에 내용이 없습니다.', false); return; }
+
+    const idx = xlFindCols(rows[0]);
+    if (idx.name < 0) {
+      msg('#xlMsg', '"이름" 칸을 찾지 못했습니다. 첫 줄에 제목을 적어 주세요.', false);
+      return;
+    }
+    xlRows = rows.slice(1).map(r => ({
+      name:    String(r[idx.name] ?? '').trim(),
+      subject: idx.subject >= 0 ? String(r[idx.subject] ?? '').trim() : '',
+      pin:     idx.pin >= 0 ? xlPin(r[idx.pin]) : '',
+      rawPin:  idx.pin >= 0 ? String(r[idx.pin] ?? '').trim() : '',
+    })).filter(r => r.name);
+    if (!xlRows.length) { msg('#xlMsg', '이름이 적힌 줄이 없습니다.', false); return; }
+    xlJudge();
+    $('#xlResult').hidden = false;
+    msg('#xlMsg', `${xlRows.length}줄을 읽었습니다. 아래를 확인하고 올려 주세요.`);
+  };
+  fr.onerror = () => msg('#xlMsg', '파일을 열지 못했습니다.', false);
+  fr.readAsArrayBuffer(file);
+}
+
+/** 한 줄씩 올리면 어떻게 될지 미리 가른다 */
+function xlJudge() {
+  const over = $('#xlOverwrite').checked;
+  const byName = new Map(teachers.map(t => [t.name, t]));
+  const pinOwner = new Map(teachers.filter(t => t.pin).map(t => [t.pin, t]));
+  const seenName = new Set();
+  const seenPin = new Map();
+
+  for (const r of xlRows) {
+    r.state = 'add'; r.note = ''; r.use = true;
+
+    if (seenName.has(r.name)) { r.state = 'bad'; r.note = '파일 안에서 이름이 겹칩니다'; r.use = false; }
+    seenName.add(r.name);
+
+    if (r.use && byName.has(r.name)) {
+      if (over) { r.state = 'warn'; r.note = '이미 있는 분 — 담당과 번호를 덮어씁니다'; }
+      else { r.state = 'skip'; r.note = '이미 있는 분 — 건너뜁니다'; r.use = false; }
+    }
+
+    if (r.use && r.pin) {
+      if (seenPin.has(r.pin)) {
+        r.state = 'bad';
+        r.note = `파일 안 ${seenPin.get(r.pin)} 선생님과 번호가 같습니다`;
+        r.use = false;
+      } else {
+        const owner = pinOwner.get(r.pin);
+        if (owner && owner.name !== r.name) {
+          r.state = 'bad';
+          r.note = `${owner.name} 선생님이 쓰고 있는 번호입니다`;
+          r.use = false;
+        }
+      }
+    }
+    if (r.use && r.pin) seenPin.set(r.pin, r.name);
+
+    if (r.use && !r.pin) {
+      r.note = r.rawPin ? '번호를 못 알아봐서 새로 만듭니다' : '번호를 만들어 드립니다';
+      if (r.state === 'add') r.state = 'warn';
+    }
+  }
+  xlRender();
+}
+
+function xlRender() {
+  const n = { add: 0, warn: 0, skip: 0, bad: 0 };
+  xlRows.forEach(r => { n[r.state]++; });
+  $('#xlStats').innerHTML = `
+    <div class="stat-chip"><span class="stat-chip-label">읽은 줄</span><span class="stat-chip-val">${xlRows.length}줄</span></div>
+    <div class="stat-chip"><span class="stat-chip-label">올릴 분</span><span class="stat-chip-val">${xlRows.filter(r => r.use).length}명</span></div>
+    <div class="stat-chip"><span class="stat-chip-label">건너뜀</span><span class="stat-chip-val">${n.skip}명</span></div>
+    <div class="stat-chip"><span class="stat-chip-label">확인 필요</span><span class="stat-chip-val">${n.bad}명</span></div>`;
+
+  const head = `<div class="xl-row head"><div>이름</div><div>담당</div><div>번호</div><div>어떻게 됩니다</div></div>`;
+  $('#xlPreview').innerHTML = head + xlRows.map(r => `
+    <div class="xl-row${r.use ? '' : ' off'}">
+      <div><b>${esc(r.name)}</b></div>
+      <div>${esc(r.subject || '')}</div>
+      <div class="pin">${esc(r.pin || '자동')}</div>
+      <div class="xl-state ${r.state}">${esc(r.note || '새로 추가합니다')}</div>
+    </div>`).join('');
+  $('#xlApply').disabled = !xlRows.some(r => r.use);
+}
+
+function xlClose() {
+  xlRows = [];
+  $('#xlResult').hidden = true;
+  $('#xlFile').value = '';
+  $('#xlOverwrite').checked = false;
+}
+
+// ── 화면 연결 ──
+$('#xlDrop').addEventListener('click', () => $('#xlFile').click());
+$('#xlFile').addEventListener('change', e => { if (e.target.files[0]) xlRead(e.target.files[0]); });
+['dragenter', 'dragover'].forEach(ev =>
+  $('#xlDrop').addEventListener(ev, e => { e.preventDefault(); $('#xlDrop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev =>
+  $('#xlDrop').addEventListener(ev, e => { e.preventDefault(); $('#xlDrop').classList.remove('over'); }));
+$('#xlDrop').addEventListener('drop', e => {
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (f) xlRead(f);
+});
+$('#xlOverwrite').addEventListener('change', xlJudge);
+$('#xlCancel').addEventListener('click', xlClose);
+
+$('#xlApply').addEventListener('click', async () => {
+  const todo = xlRows.filter(r => r.use);
+  if (!todo.length) return;
+  $('#xlApply').disabled = true;
+  $('#xlApply').textContent = '올리는 중…';
+  let added = 0, updated = 0;
+  const fail = [];
+  const byName = new Map(teachers.map(t => [t.name, t]));
+  for (const r of todo) {
+    try {
+      const exist = byName.get(r.name);
+      if (exist) {
+        await updateDoc(doc(db, C_TEACHERS, exist.id), { subject: r.subject });
+        exist.subject = r.subject;
+        if (r.pin) {
+          await setDoc(doc(db, C_PINS, exist.id), { pin: r.pin, fails: 0, lockUntil: 0 });
+          exist.pin = r.pin;
+        }
+        updated++;
+      } else {
+        await addTeacher(r.name, r.subject, r.pin);
+        added++;
+      }
+    } catch (e) {
+      fail.push(`${r.name} (${friendlyErr(e)})`);
+    }
+  }
+  renderTeachers(); fillTeacherFilter();
+  $('#xlApply').textContent = '이 목록으로 올리기';
+  $('#xlApply').disabled = false;
+  xlClose();
+  const parts = [];
+  if (added) parts.push(`${added}명 추가`);
+  if (updated) parts.push(`${updated}명 수정`);
+  if (fail.length) parts.push(`${fail.length}명 실패 — ${fail.join(' / ')}`);
+  msg('#xlMsg', parts.join(', ') || '바뀐 것이 없습니다.', !fail.length);
+});
+
+// 빈 양식과 지금 명단 내보내기
+$('#xlTemplate').addEventListener('click', () => {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['이름', '담당', '번호'],
+    ['김호성', '역사', '1234'],
+    ['이영희', '수학', ''],
+  ]);
+  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 10 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '선생님');
+  XLSX.writeFile(wb, '감사편지_선생님_양식.xlsx');
+});
+
+$('#xlExport').addEventListener('click', () => {
+  if (!teachers.length) { msg('#xlMsg', '등록된 선생님이 없습니다.', false); return; }
+  const ws = XLSX.utils.json_to_sheet(teachers.map(t => ({
+    이름: t.name, 담당: t.subject || '', 번호: t.pin || '', 받은편지: letterCount(t.id),
+  })), { header: ['이름', '담당', '번호', '받은편지'] });
+  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 10 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '선생님');
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  XLSX.writeFile(wb, `감사편지_선생님명단_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.xlsx`);
 });
 
 function letterCount(tid) {
