@@ -165,18 +165,70 @@ export function mountSnow(canvas, count = 110) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  /* 굵은 눈은 육각 결정으로 그린다.
+     전부 동그라미로 두면 눈이 아니라 점 무늬가 흘러가는 것처럼 보인다.
+
+     **결정을 매 프레임 선으로 긋지 않는다.** 한 송이에 선이 열다섯 줄이라
+     예순 송이면 한 프레임에 구백 줄이 되고, 재어 보니 그것만으로 메인 스레드가
+     20%p 더 들었다. 크기별로 **미리 한 번 그려 두고 도장처럼 찍는다**(drawImage).
+     먼 눈은 아주 작아 결정이 뭉개지기만 하므로 그냥 동그라미로 둔다. */
+  const CRYSTAL_MIN = 2.2;     // 이보다 굵은 눈만 결정으로
+  const SPR_STEP = 0.5;        // 도장 크기 간격
+  const SPR_N = 6;             // 도장 가짓수
+  const SPR_SCALE = 3;         // 고해상도 화면에서도 안 뭉개지게 크게 그려 둔다
+  let sprites = [];
+
+  function buildSprites() {
+    sprites = [];
+    for (let i = 0; i < SPR_N; i++) {
+      const r = CRYSTAL_MIN + i * SPR_STEP;
+      const half = Math.ceil(r + 1.5);
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = half * 2 * SPR_SCALE;
+      const g = cv.getContext('2d');
+      g.translate(half * SPR_SCALE, half * SPR_SCALE);
+      g.scale(SPR_SCALE, SPR_SCALE);
+      g.strokeStyle = '#eaf6ff';
+      g.lineWidth = Math.max(0.5, r * 0.24);
+      g.lineCap = 'round';
+      g.beginPath();
+      for (let k = 0; k < 3; k++) {              // 가지 여섯(축 셋을 양쪽으로)
+        const a = (k * Math.PI) / 3;
+        const dx = Math.cos(a) * r, dy = Math.sin(a) * r;
+        g.moveTo(-dx, -dy);
+        g.lineTo(dx, dy);
+      }
+      for (let k = 0; k < 6; k++) {              // 가지에 달린 잔가지
+        const a = (k * Math.PI) / 3;
+        const bx = Math.cos(a) * r * 0.62, by = Math.sin(a) * r * 0.62;
+        for (const sgn of [-1, 1]) {
+          const a2 = a + sgn * 0.62;
+          g.moveTo(bx, by);
+          g.lineTo(bx + Math.cos(a2) * r * 0.34, by + Math.sin(a2) * r * 0.34);
+        }
+      }
+      g.stroke();
+      sprites.push({ cv, half });
+    }
+  }
+
   function seed() {
     flakes = Array.from({ length: count }, () => {
       const depth = Math.random();            // 0 멀리, 1 가까이
+      const r = 0.9 + depth * depth * 3.6;    // 가까운 눈일수록 굵게
       return {
         x: Math.random() * w,
         y: Math.random() * h,
-        r: 0.9 + depth * depth * 3.2,         // 가까운 눈일수록 굵게
+        r,
+        spr: r < CRYSTAL_MIN ? -1
+           : Math.min(SPR_N - 1, Math.round((r - CRYSTAL_MIN) / SPR_STEP)),
         vy: 0.28 + depth * 1.25,              //            빠르게
         vx: -0.3 + Math.random() * 0.6,
         a: 0.3 + depth * 0.58,                //            또렷하게
         t: Math.random() * Math.PI * 2,
         tw: 0.6 + Math.random() * 1.6,        // 반짝이는 박자
+        rot: Math.random() * Math.PI,         // 지금 돌아가 있는 각도
+        vr: (Math.random() - 0.5) * 0.012,    // 도는 속도(양쪽으로)
       };
     });
   }
@@ -192,17 +244,27 @@ export function mountSnow(canvas, count = 110) {
       if (f.x < -10) f.x = w + 10;
       if (f.x > w + 10) f.x = -10;
       // 숨 쉬듯 밝기가 오르내려야 흩날리는 눈처럼 보인다
-      ctx.globalAlpha = f.a * (0.78 + Math.sin(f.t * 1.7) * 0.22);
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.globalAlpha = f.a * (0.74 + Math.sin(f.t * 1.7) * 0.26);
+      if (f.spr < 0) {
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        f.rot += f.vr;
+        const s = sprites[f.spr];
+        ctx.save();
+        ctx.translate(f.x, f.y);
+        ctx.rotate(f.rot);
+        ctx.drawImage(s.cv, -s.half, -s.half, s.half * 2, s.half * 2);
+        ctx.restore();
+      }
     }
     ctx.globalAlpha = 1;
     raf = requestAnimationFrame(draw);
   }
 
   const onResize = () => { resize(); seed(); };
-  resize(); seed(); draw();
+  buildSprites(); resize(); seed(); draw();
   window.addEventListener('resize', onResize);
 
   return () => {
