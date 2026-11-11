@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>감사편지 트리</title>
+  <title>내 트리를 꾸며줘!</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a1622'/><path d='M16 6.5 11 16h10z' fill='%232b7152'/><path d='M16 12 9 24h14z' fill='%231b4e3b'/><rect x='14.6' y='23' width='2.8' height='4' rx='1' fill='%235b4029'/><circle cx='16' cy='5' r='2.6' fill='%23f0c457'/></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="shared/theme.css">
@@ -163,7 +163,7 @@
   </main>
 
   <header class="xm-treehead">
-    <h1 class="xm-treetitle" id="title">감사편지 트리</h1>
+    <h1 class="xm-treetitle" id="title">내 트리를 꾸며줘!</h1>
     <p class="xm-treesub" id="sub">마음을 적어 트리에 달아 주세요</p>
   </header>
 
@@ -189,7 +189,7 @@ import { demoCount, demoOrnaments, mountDemoBadge } from "./demo-data.js";
 
 const $ = s => document.querySelector(s);
 
-mountSnow($('#snow'), 90);
+mountSnow($('#snow'), 150);   // 전시 화면은 넉넉히
 
 /* ── 트리 그리기 ───────────────────────────────────────────────
    가지는 아래 단부터 그린다. 그래야 위 단의 물결진 밑자락이 아래 단을 덮으며
@@ -494,6 +494,9 @@ function render(freshIds = new Set()) {
       sway.style.setProperty('--sway', (4.2 + Math.random() * 2.8).toFixed(2) + 's');
       sway.style.setProperty('--tilt', (2.1 + Math.random() * 1.9).toFixed(2) + 'deg');
       sway.style.animationDelay = `-${(Math.random() * 6).toFixed(2)}s`;
+      const art = sway.firstElementChild;         // 반짝임은 안쪽 그림에 건다
+      art.style.setProperty('--tw', (2.4 + Math.random() * 3.2).toFixed(2) + 's');
+      art.style.animationDelay = `-${(Math.random() * 6).toFixed(2)}s`;
       if (!firstPaint && freshIds.has(p.id)) {
         el.classList.add('fresh');
         setTimeout(() => el.classList.remove('fresh'), 1400);

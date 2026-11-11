@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════
-   감사편지 트리 공통 모듈 — 네 화면이 같이 쓴다.
+   "내 트리를 꾸며줘!" 공통 모듈 — 네 화면이 같이 쓴다.
      index.html   학생이 편지를 쓰는 화면 (공용 태블릿)
      tree.html    전시용 트리 화면
      teacher.html 선생님이 자기 앞으로 온 편지를 읽는 화면
@@ -51,7 +51,7 @@ export const XMAS_FN_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunct
 // ── 설정 ────────────────────────────────────────────────────────
 
 export const DEFAULT_CONFIG = {
-  title:  '선생님께 보내는 감사편지',
+  title:  '내 트리를 꾸며줘!',
   sub:    '마음을 적어 트리에 달아 주세요',
   openAt: '',      // 'YYYY-MM-DD' — 선생님이 편지를 읽을 수 있게 되는 날(한국 시간 0시). 비우면 바로 열린다.
   closed: false,   // 편지 받기 중단
@@ -143,12 +143,17 @@ export function studentIdLabel(sid) {
   return `${+s[0]}학년 ${+s.slice(1, 3)}반 ${+s.slice(3)}번`;
 }
 
-// ── 밤하늘 눈 내리기 ────────────────────────────────────────────
-// div 수십 개를 애니메이션하는 대신 캔버스 한 장에 그린다(태블릿에서 덜 버겁다).
+/* ── 밤하늘 눈 내리기 ────────────────────────────────────────────
+   div 수십 개를 애니메이션하는 대신 캔버스 한 장에 그린다(태블릿에서 덜 버겁다).
 
-export function mountSnow(canvas, count = 70) {
+   **움직임 줄이기(prefers-reduced-motion)로 멈추지 않는다.** 예전에는 멈췄는데,
+   윈도우의 [애니메이션 효과]를 꺼 둔 PC에서 눈이 한 자리에 붙어 있어 "눈이 안 내린다"가
+   됐다. 이 앱은 축제 전시용이고 눈 내리는 밤하늘이 화면의 절반이다.
+
+   가까운 눈과 먼 눈을 섞는다(깊이). 같은 크기 같은 속도로 두면 눈이라기보다
+   점 무늬가 흘러가는 것처럼 보인다. */
+export function mountSnow(canvas, count = 110) {
   if (!canvas) return () => {};
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ctx = canvas.getContext('2d');
   let w = 0, h = 0, raf = 0, flakes = [];
 
@@ -161,36 +166,39 @@ export function mountSnow(canvas, count = 70) {
   }
 
   function seed() {
-    flakes = Array.from({ length: count }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      r: 1 + Math.random() * 2.4,
-      vy: 0.25 + Math.random() * 0.75,
-      vx: -0.25 + Math.random() * 0.5,
-      a: 0.25 + Math.random() * 0.5,
-      t: Math.random() * Math.PI * 2,
-    }));
+    flakes = Array.from({ length: count }, () => {
+      const depth = Math.random();            // 0 멀리, 1 가까이
+      return {
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 0.9 + depth * depth * 3.2,         // 가까운 눈일수록 굵게
+        vy: 0.28 + depth * 1.25,              //            빠르게
+        vx: -0.3 + Math.random() * 0.6,
+        a: 0.3 + depth * 0.58,                //            또렷하게
+        t: Math.random() * Math.PI * 2,
+        tw: 0.6 + Math.random() * 1.6,        // 반짝이는 박자
+      };
+    });
   }
 
   function draw() {
     ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#ffffff';
     for (const f of flakes) {
-      if (!reduce) {
-        f.t += 0.012;
-        f.y += f.vy;
-        f.x += f.vx + Math.sin(f.t) * 0.4;
-        if (f.y - f.r > h) { f.y = -f.r; f.x = Math.random() * w; }
-        if (f.x < -10) f.x = w + 10;
-        if (f.x > w + 10) f.x = -10;
-      }
-      ctx.globalAlpha = f.a;
-      ctx.fillStyle = '#ffffff';
+      f.t += 0.012 * f.tw;
+      f.y += f.vy;
+      f.x += f.vx + Math.sin(f.t) * 0.45;
+      if (f.y - f.r > h) { f.y = -f.r; f.x = Math.random() * w; }
+      if (f.x < -10) f.x = w + 10;
+      if (f.x > w + 10) f.x = -10;
+      // 숨 쉬듯 밝기가 오르내려야 흩날리는 눈처럼 보인다
+      ctx.globalAlpha = f.a * (0.78 + Math.sin(f.t * 1.7) * 0.22);
       ctx.beginPath();
       ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-    raf = reduce ? 0 : requestAnimationFrame(draw);
+    raf = requestAnimationFrame(draw);
   }
 
   const onResize = () => { resize(); seed(); };

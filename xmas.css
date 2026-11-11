@@ -392,6 +392,17 @@
   will-change: transform;
 }
 .xm-hang svg { display: block; width: 100%; height: auto }
+/* 색이 반짝인다. 흔들림(transform)과 따로 놀아야 하므로 **안쪽 그림에** 건다 —
+   같은 요소에 두 애니메이션을 얹으면 '방금 달렸어요'(fresh)가 덮어써 버린다.
+   박자(--tw)는 오너먼트마다 다르게 준다(스크립트가 넣는다). 한 박자로 두면
+   160개가 동시에 밝아졌다 어두워져 전등 스위치를 켠 것처럼 보인다. */
+.xm-hang .xm-sway > svg {
+  animation: xm-twinkle var(--tw, 3.6s) ease-in-out infinite;
+}
+@keyframes xm-twinkle {
+  0%, 100% { filter: brightness(.88) saturate(.92) }
+  50%      { filter: brightness(1.42) saturate(1.28) }
+}
 /* 가지에 매달려 아주 천천히 흔들린다 */
 /* 박자(--sway)와 폭(--tilt)을 오너먼트마다 다르게 준다(스크립트가 넣는다).
    같은 박자로 두면 160개가 한 몸처럼 움직여 기계처럼 보인다.
@@ -424,11 +435,10 @@
   to   { filter: drop-shadow(0 0 13px rgba(255,235,170,.95)) }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* 오너먼트가 바람에 흔들리는 것은 남겨 둔다 — 이것까지 멈추면 트리가
-     그림 한 장이 되어 "달렸다"는 느낌이 사라진다. 아주 느리고 작은 움직임이다. */
-  .xm-stars, .xm-orns.mine .xm-hang.mine { animation: none }
-}
+/* 이 앱에는 prefers-reduced-motion으로 끄는 움직임이 없다.
+   축제 전시용이고 눈 내리는 밤하늘과 반짝이는 트리가 화면의 전부다. 하나씩 꺼 봤더니
+   윈도우의 [애니메이션 효과]를 꺼 둔 PC에서 "눈이 안 내린다", "트리가 안 움직인다"가
+   됐다. 전부 느리고 작은 움직임이라 그대로 둔다. */
 
 /* ── 편지 읽기 카드(선생님 화면과 어드민) ─────────────────────── */
 .xm-letters {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>선생님께 보내는 감사편지</title>
+  <title>내 트리를 꾸며줘!</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a1622'/><path d='M16 6.5 11 16h10z' fill='%232b7152'/><path d='M16 12 9 24h14z' fill='%231b4e3b'/><rect x='14.6' y='23' width='2.8' height='4' rx='1' fill='%235b4029'/><circle cx='16' cy='5' r='2.6' fill='%23f0c457'/></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="shared/theme.css">
@@ -63,7 +63,7 @@
     .xm-picktree > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
     /* 이미 걸린 것들은 자리만 알아보게 흐리게 둔다(남의 편지라 눈에 띌 이유가 없다) */
     .xm-picktree .xm-orns .xm-hang { opacity: .5 }
-    .xm-picktree .xm-hang .xm-sway { animation: none }
+    .xm-picktree .xm-hang .xm-sway, .xm-picktree .xm-hang svg { animation: none }
 
     /* 내가 고른 자리에 미리 걸어 보는 것 */
     .xm-ghost {
@@ -105,7 +105,7 @@
 
   <main class="xm-stage">
     <div class="xm-top">
-      <div class="xm-brand"><span data-icon="tree-pine" data-icon-size="20"></span><span id="brandName">감사편지 트리</span></div>
+      <div class="xm-brand"><span data-icon="tree-pine" data-icon-size="20"></span><span id="brandName">내 트리를 꾸며줘!</span></div>
       <button class="xm-btn xm-btn-ghost xm-btn-sm" id="resetBtn" type="button" hidden>처음으로</button>
     </div>
 
@@ -117,7 +117,7 @@
 
       <!-- 1단계 — 나를 밝히기 -->
       <section class="xm-step" id="step1">
-        <h1 class="xm-title" id="cfgTitle">선생님께 보내는 감사편지</h1>
+        <h1 class="xm-title" id="cfgTitle">내 트리를 꾸며줘!</h1>
         <p class="xm-sub" id="cfgSub">마음을 적어 트리에 달아 주세요</p>
         <div class="xm-panel">
           <div class="xm-field">
@@ -297,7 +297,7 @@ watchConfig(c => {
   $('#loading').hidden = true;
   $('#cfgTitle').textContent = c.title;
   $('#cfgSub').textContent = c.sub;
-  $('#brandName').textContent = c.title.length > 12 ? '감사편지 트리' : c.title;
+  $('#brandName').textContent = c.title.length > 12 ? '내 트리를 꾸며줘!' : c.title;
   document.title = c.title;
   // 받기를 멈추면 쓰던 것도 지우고 닫는다(설정이 바뀌는 즉시 태블릿이 따라온다).
   if (c.closed) {
