@@ -85,26 +85,38 @@
     }
 
     /* ── 꼭대기 별 ───────────────────────────────────────────────
-       빠르게 반짝인다. 세 겹이 서로 다른 박자로 움직여야 "깜빡이는 전구"가 아니라
-       "빛나는 별"로 보인다 — 둘레 빛은 숨 쉬듯 커졌다 작아지고(1.6초),
-       별 본체는 아주 살짝 밝아지며(1.1초), 가운데 흰 심지가 가장 빠르게 뛴다(0.75초).
-       회전 중심(transform-box: fill-box)을 안 적으면 SVG 전체 좌표를 기준으로 돌아
-       별이 화면 밖으로 날아간다. */
-    #starGlow, #starBody, #starCore { transform-box: fill-box; transform-origin: center }
-    #starGlow { animation: xm-starglow 1.6s ease-in-out infinite alternate }
-    #starBody { animation: xm-starbody 1.1s ease-in-out infinite alternate }
-    #starCore { animation: xm-starcore .75s ease-in-out infinite alternate }
+       통째로 깜빡이게 두면 별이 아니라 전구가 된다. 빛을 받는 물건처럼 보이려면
+       **빛이 표면을 훑고 지나가고, 그 빛이 모서리를 지날 때 순간 터져야** 한다.
+       그래서 셋으로 나눴다.
+         쓸림  밝은 띠 하나가 별 안쪽을 비스듬히 가로지른다(별 모양으로 오려 놨다)
+         섬광  띠가 한가운데를 지날 때 가로로 길쭉한 빛이 0.4초쯤 터졌다 사라진다
+         둘레  뒤에 깔린 빛이 아주 천천히 숨 쉰다(이것만 느리다)
+       셋이 한 박자(3.2초)를 공유하되 터지는 때를 어긋나게 둔 것이 전부다.
+
+       SVG 안에서 transform을 쓸 때는 **transform-box: fill-box를 꼭 같이 적는다.**
+       안 적으면 SVG 전체 좌표를 기준으로 커져 별이 화면 밖으로 날아간다. */
+    #starGlow, #starSheen, #starGlint { transform-box: fill-box; transform-origin: center }
+
+    #starGlow  { animation: xm-starglow 3.2s ease-in-out infinite alternate }
+    #starSheen { animation: xm-starsheen 3.2s linear infinite }
+    #starGlint { animation: xm-starglint 3.2s ease-out infinite; opacity: 0 }
+
     @keyframes xm-starglow {
-      from { opacity: .55; transform: scale(.82) }
-      to   { opacity: 1;   transform: scale(1.12) }
+      from { opacity: .72; transform: scale(.94) }
+      to   { opacity: 1;   transform: scale(1.07) }
     }
-    @keyframes xm-starbody {
-      from { opacity: .88; transform: scale(.98) }
-      to   { opacity: 1;   transform: scale(1.04) }
+    /* 띠는 별 바깥에서 들어와 바깥으로 빠진다. 나간 뒤에는 다음 바퀴까지 그냥 서 있는다
+       (오려 둔 밖이라 안 보인다) — 그래야 훑는 순간만 도드라진다. */
+    @keyframes xm-starsheen {
+      0%   { transform: translateX(-13px) rotate(-20deg) }
+      30%  { transform: translateX(13px)  rotate(-20deg) }
+      100% { transform: translateX(13px)  rotate(-20deg) }
     }
-    @keyframes xm-starcore {
-      from { opacity: .45; transform: scale(.72) }
-      to   { opacity: 1;   transform: scale(1.15) }
+    @keyframes xm-starglint {
+      0%, 10% { opacity: 0; transform: scale(.25) }
+      15%     { opacity: 1; transform: scale(1) }
+      24%     { opacity: 0; transform: scale(.8) }
+      100%    { opacity: 0; transform: scale(.25) }
     }
 
     /* 트리가 아직 비었을 때 */
@@ -257,25 +269,80 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
      낮은 불투명도의 금색이 회색 테두리처럼 보여 빛이 아니라 그림자가 됐다.
      지금은 가운데가 밝고 가장자리로 사라지는 둥근 빛을 뒤에 깐다.
      (오너먼트와 달리 트리는 화면에 하나뿐이라 그라데이션 id를 써도 안 엉킨다.)
-     빛이 viewBox 위로 삐져나가면 거기서 뚝 잘려 네모 자국이 생긴다.
-     그래서 별을 조금 내리고 빛 반지름을 위쪽 여백 안에 맞췄다(cy - r >= 0). */
+
+     빛이 viewBox 위로 삐져나가면 거기서 뚝 잘려 네모 자국이 생긴다. 그래서 별을
+     조금 내리고 빛 반지름을 위쪽 여백 안에 맞췄다(cy - r >= 0). **섬광도 마찬가지라
+     세로는 짧게, 가로만 길게 뻗는다** — 위아래로 길게 뽑으면 꼭대기가 잘린다. */
   const STAR_Y = 11, GLOW_R = 11;
   const defs = document.createElementNS(ns, 'defs');
-  const grad = document.createElementNS(ns, 'radialGradient');
-  grad.setAttribute('id', 'xmStarGlow');
-  [['0%', '#ffe9a8', '.6'], ['45%', '#f0c457', '.24'], ['100%', '#f0c457', '0']]
-    .forEach(([off, col, op]) => {
+
+  const mkGrad = (tag, id, attrs, stops) => {
+    const g = document.createElementNS(ns, tag);
+    g.setAttribute('id', id);
+    for (const k in attrs) g.setAttribute(k, attrs[k]);
+    stops.forEach(([off, col, op]) => {
       const s = document.createElementNS(ns, 'stop');
       s.setAttribute('offset', off);
       s.setAttribute('stop-color', col);
       s.setAttribute('stop-opacity', op);
-      grad.appendChild(s);
+      g.appendChild(s);
     });
-  defs.appendChild(grad);
+    defs.appendChild(g);
+  };
+
+  // 뒤에 깔리는 둥근 빛
+  mkGrad('radialGradient', 'xmStarGlow', {},
+    [['0%', '#ffe9a8', '.6'], ['45%', '#f0c457', '.24'], ['100%', '#f0c457', '0']]);
+  // 별 위를 훑고 지나가는 밝은 띠
+  mkGrad('linearGradient', 'xmStarSheen', { x1: '0', y1: '0', x2: '1', y2: '0' },
+    [['0%', '#fff', '0'], ['45%', '#fffdf2', '.9'], ['55%', '#fffdf2', '.9'], ['100%', '#fff', '0']]);
+  // 섬광(가운데가 희고 끝으로 갈수록 사라진다). 꼬리를 길게 끌면 얼룩처럼 보여 짧게 끊는다.
+  mkGrad('radialGradient', 'xmStarBurst', {},
+    [['0%', '#ffffff', '1'], ['18%', '#fff8e2', '.9'], ['46%', '#ffe09a', '.3'], ['100%', '#ffd166', '0']]);
+
+  // 띠가 별 밖으로 번지지 않게 별 모양으로 오려 둔다
+  const clip = document.createElementNS(ns, 'clipPath');
+  clip.setAttribute('id', 'xmStarClip');
+  const clipStar = document.createElementNS(ns, 'path');
+  clipStar.setAttribute('d', starPath(50, STAR_Y, 8.4, 3.5));
+  clip.appendChild(clipStar);
+  defs.appendChild(clip);
   art.appendChild(defs);
+
   add('circle', { id: 'starGlow', cx: 50, cy: STAR_Y, r: GLOW_R, fill: 'url(#xmStarGlow)' });
-  add('path', { id: 'starBody', d: starPath(50, STAR_Y, 8.4, 3.5), fill: '#f7d479' });
-  add('path', { id: 'starCore', d: starPath(50, STAR_Y - 0.5, 4.2, 1.8), fill: '#fff6d8', 'fill-opacity': 0.9 });
+  /* 가만히 있을 때는 금색으로 둔다. 처음에는 거의 흰 별로 뒀는데, 그러면 빛이 훑고
+     지나가도 더 밝아질 자리가 없어 아무 일도 안 일어난 것처럼 보였다. */
+  add('path', { d: starPath(50, STAR_Y, 8.4, 3.5), fill: '#edc05c' });
+  add('path', { d: starPath(50, STAR_Y - 0.5, 4.2, 1.8), fill: '#ffeaae', 'fill-opacity': 0.85 });
+
+  // 쓸림 — 별 안쪽에서만 보인다
+  const sheenG = document.createElementNS(ns, 'g');
+  sheenG.setAttribute('clip-path', 'url(#xmStarClip)');
+  art.appendChild(sheenG);
+  const sheen = document.createElementNS(ns, 'rect');
+  for (const [k, v] of Object.entries({
+    id: 'starSheen', x: 50 - 3, y: STAR_Y - 11, width: 6, height: 22,
+    fill: 'url(#xmStarSheen)',
+  })) sheen.setAttribute(k, v);
+  sheenG.appendChild(sheen);
+
+  /* 섬광 — 가로로 긴 줄기와 짧은 세로 줄기가 십자로 겹친다. 맨 위에 올라와야 한다.
+     세로를 길게 뽑으면 viewBox 위로 넘쳐 꼭대기가 네모로 잘린다(cy - ry >= 0). */
+  const glint = document.createElementNS(ns, 'g');
+  glint.setAttribute('id', 'starGlint');
+  art.appendChild(glint);
+  [[19, 2.1], [2.0, 9.5]].forEach(([rx, ry]) => {
+    const e = document.createElementNS(ns, 'ellipse');
+    for (const [k, v] of Object.entries({ cx: 50, cy: STAR_Y, rx, ry, fill: 'url(#xmStarBurst)' })) {
+      e.setAttribute(k, v);
+    }
+    glint.appendChild(e);
+  });
+  const core = document.createElementNS(ns, 'circle');
+  for (const [k, v] of Object.entries({ cx: 50, cy: STAR_Y, r: 3.4, fill: 'url(#xmStarBurst)' })) {
+    core.setAttribute(k, v);
+  }
+  glint.appendChild(core);
 })();
 
 watchConfig(c => {
