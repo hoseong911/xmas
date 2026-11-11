@@ -258,7 +258,6 @@ import { TREE, TIERS, tierPath, starPath, placeAll, clampSpot, nudgeFree, autoSp
 import { icon } from "./shared/icons.js";
 import { containsBadWord } from "./shared/profanity.js";
 import { demoCount, demoOrnaments, demoTeachers, mountDemoBadge } from "./demo-data.js";
-import { mountPixelTrees } from "./pixel-trees.js";
 
 const $ = s => document.querySelector(s);
 
@@ -284,7 +283,6 @@ mountDemoBadge(DEMO);
 
 // ── 눈과 아이콘 ────────────────────────────────────────────────
 mountSnow($('#snow'));
-mountPixelTrees(document.querySelector('.xm-campus'));
 function paintIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach(el => {
     el.innerHTML = icon(el.dataset.icon, el.dataset.iconSize ? +el.dataset.iconSize : 24);
