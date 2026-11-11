@@ -113,7 +113,7 @@ export function mountDemoBadge(n = demoCount()) {
   const el = document.createElement('div');
   el.textContent = `미리보기 가짜 데이터 ${n}개 (저장되지 않습니다)`;
   el.style.cssText = [
-    'position:fixed', 'left:10px', 'top:10px', 'z-index:50',
+    'position:fixed', 'right:10px', 'top:10px', 'z-index:50',
     'padding:6px 12px', 'border-radius:999px',
     'background:rgba(240,196,87,.16)', 'border:1px solid rgba(240,196,87,.45)',
     'color:#f0c457', 'font-size:12px', 'font-weight:700',

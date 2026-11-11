@@ -93,16 +93,21 @@
 
     /* ── 가까이 보기 ──────────────────────────────────────────────
        카메라를 확대해 꼭대기부터 밑동까지 천천히 훑어 내렸다가 다시 올라온다.
-       transform은 오른쪽부터 먹으므로 scale(Z) translateY(p) 에서 실제로 움직이는
-       거리는 Z 곱하기 p 다. 그래서 끝까지 훑으려면 p = -(1 - 1/Z) 여야 한다.
-       이 값(--pan)은 스크립트가 셈해서 넣는다(calc 안에서 변수로 나누는 것은
-       브라우저마다 다르게 군다). */
+       transform은 오른쪽부터 먹으므로 scale(Z) translateY(p)에서 실제로 움직인
+       거리는 Z배가 된다. 어디서 시작해 어디서 멈출지(--pan0, --pan1)는 화면과
+       트리의 실제 높이를 보고 스크립트가 px로 셈해 넣는다 — 화면 비율이 제각각이라
+       한 가지 비율로 묶어 두면 세로로 긴 화면에서 트리를 지나쳐 허공을 훑는다.
+
+       **움직임 줄이기(prefers-reduced-motion)로 이 애니메이션을 끄지 않는다.**
+       가까이 보기는 사람이 일부러 고르는 보기이고, 훑어 내려가는 것이 그 보기의
+       전부다. 끄면 화면이 확대된 채 멈춰 고장난 것처럼 보인다.
+       (오너먼트 흔들림이나 별 반짝임 같은 곁다리는 그대로 끈다.) */
     .xm-cam.zoom {
-      animation: xm-pan var(--pan-sec, 34s) ease-in-out infinite alternate;
+      animation: xm-pan var(--pan-sec, 24s) ease-in-out infinite alternate;
     }
     @keyframes xm-pan {
-      from { transform: scale(var(--zoom)) translateY(0) }
-      to   { transform: scale(var(--zoom)) translateY(var(--pan)) }
+      from { transform: scale(var(--zoom)) translateY(var(--pan0)) }
+      to   { transform: scale(var(--zoom)) translateY(var(--pan1)) }
     }
     /* 학번과 이름. 평소에는 없고 가까이 보기에서만 뜬다.
        글자 크기를 cqw(트리 폭의 %)로 두어야 화면이 커져도 오너먼트와 같은
@@ -125,9 +130,7 @@
     .xm-lab i { display: block; font-style: normal; opacity: .82; font-weight: 600 }
     .xm-orns.labels .xm-lab { display: block }
 
-    @media (prefers-reduced-motion: reduce) {
-      .xm-cam.zoom { animation: none; transform: scale(var(--zoom)) translateY(calc(var(--pan) / 2)) }
-    }
+
   </style>
 </head>
 <body class="hi-preset-xmas xm-body">
@@ -261,12 +264,36 @@ watchConfig(c => {
 
    주소에 ?view=zoom 을 붙이면 처음부터 가까이 보기로 열린다(TV에 그대로 띄우는 용).
    구석 단추로도 오갈 수 있고, 고른 보기는 주소에 남아 새로고침해도 유지된다. */
-const ZOOM    = 2.0;    // 몇 배로 당길 것인가
-const PAN_SEC = 34;     // 꼭대기에서 밑동까지 한 번 훑는 데 걸리는 초
+const ZOOM    = 2.0;    // 적어도 이만큼은 당긴다
+const ZOOM_MAX = 3.2;   // 세로로 긴 화면에서도 이보다 더 당기지는 않는다
+const FILL    = 1.6;    // 당긴 트리가 화면 높이의 이 정도는 되어야 훑을 맛이 난다
+const PAN_SEC = 24;     // 꼭대기에서 밑동까지 한 번 훑는 데 걸리는 초
 const BAND    = 9;      // 이름이 뜨는 띠의 두께(트리 좌표, 위아래로 이만큼)
 const LAB_DX  = 7;      // 이름끼리 이만큼 안 떨어지면 뒤엣것을 숨긴다(가로)
 const LAB_DY  = 3.4;    //                                        (세로)
 const cam = $('#cam');
+
+/* 배율과 훑을 구간을 화면에 맞춰 셈한다.
+   offsetHeight는 transform이 먹기 **전**의 높이다(getBoundingClientRect는 먹은 뒤라
+   여기 쓰면 당길 때마다 값이 불어나 제멋대로가 된다).
+
+   트리는 카메라 칸 한가운데 있다. 당기는 기준점이 칸의 위 가운데(transform-origin)이므로
+   꼭대기를 화면 위에 맞추려면 위쪽 여백만큼 끌어올려야 하고, 밑동을 화면 바닥에 맞추려면
+   거기서 (트리 높이 빼기 화면 높이 나누기 배율)만큼 더 올라가야 한다. */
+function fitCamera() {
+  const camH  = cam.clientHeight;
+  const wrapH = $('#wrap').offsetHeight;
+  if (!camH || !wrapH) return;
+  // 세로로 긴 화면에서는 트리가 폭에 막혀 짧아진다. 그만큼 더 당겨야 훑을 구간이 생긴다.
+  const z   = Math.min(ZOOM_MAX, Math.max(ZOOM, (camH * FILL) / wrapH));
+  const gap = (camH - wrapH) / 2;          // 트리 위에 남는 여백
+  const p0  = -gap;                        // 꼭대기가 화면 위에 닿는 자리
+  const p1  = Math.min(p0, camH / z - gap - wrapH);   // 밑동이 화면 바닥에 닿는 자리
+  cam.style.setProperty('--zoom', z.toFixed(3));
+  cam.style.setProperty('--pan0', p0.toFixed(1) + 'px');
+  cam.style.setProperty('--pan1', p1.toFixed(1) + 'px');
+  cam.style.setProperty('--pan-sec', PAN_SEC + 's');
+}
 
 function setView(mode) {
   const zoom = mode === 'zoom';
@@ -274,13 +301,11 @@ function setView(mode) {
   $('#orns').classList.toggle('labels', zoom);
   $('#viewBtn').textContent = zoom ? '전체 보기' : '가까이 보기';
   if (zoom) {
-    cam.style.setProperty('--zoom', ZOOM);
-    // scale이 나중에 먹으므로 실제 움직인 거리는 ZOOM배가 된다. 끝까지 훑으려면 이 값이어야 한다.
-    cam.style.setProperty('--pan', (-(1 - 1 / ZOOM) * 100).toFixed(3) + '%');
-    cam.style.setProperty('--pan-sec', PAN_SEC + 's');
+    fitCamera();
   } else {
     cam.style.removeProperty('--zoom');
-    cam.style.removeProperty('--pan');
+    cam.style.removeProperty('--pan0');
+    cam.style.removeProperty('--pan1');
   }
   if (zoom) startFocus(); else stopFocus();
   const u = new URL(location.href);
@@ -353,6 +378,9 @@ function stopFocus() {
 $('#viewBtn').addEventListener('click', () => {
   setView(cam.classList.contains('zoom') ? 'full' : 'zoom');
 });
+
+// 화면이 바뀌면(TV 해상도 전환, 폰 돌리기) 훑을 구간을 다시 잡는다
+window.addEventListener('resize', () => { if (cam.classList.contains('zoom')) fitCamera(); });
 
 /* ── 선생님 모드 ───────────────────────────────────────────────
    teacher.html에서 네 자리 번호를 확인한 뒤 같은 탭으로 넘어오면
