@@ -110,20 +110,6 @@
       100%    { opacity: 0; transform: scale(.25) }
     }
 
-    /* ── 픽셀 보기 ───────────────────────────────────────────────
-       같은 트리를 네모 블록으로 다시 그린 것이다. 거는 자리(x, y)는 그대로라
-       학생이 찍어 둔 곳에 그대로 걸린다.
-       오너먼트는 작게 줄여 둔 그림을 다시 키워 쓴다 — image-rendering: pixelated를
-       안 적으면 브라우저가 매끄럽게 펴 버려 그냥 흐린 그림이 된다. */
-    .xm-pxorn {
-      display: block; width: 100%; height: auto;
-      image-rendering: pixelated;
-      -ms-interpolation-mode: nearest-neighbor;
-    }
-    /* 픽셀 보기에서는 오너먼트도 블록이라 흔들림을 조금 줄인다
-       (네모가 비스듬히 돌면 가장자리가 톱니처럼 번진다) */
-    body.pixel .xm-hang .xm-sway { animation-duration: calc(var(--sway, 5.2s) * 1.4) }
-
     /* 트리가 아직 비었을 때 */
     .xm-treeempty {
       position: absolute; left: 0; right: 0; top: 46%;
@@ -187,18 +173,14 @@
       <div class="xm-treewrap" id="wrap">
         <!-- 가지와 별은 tree-layout.js의 TIERS에서 그린다(자리 계산과 같은 파일이라 어긋나지 않는다) -->
         <svg viewBox="0 0 100 130" preserveAspectRatio="xMidYMid meet" aria-label="크리스마스트리">
-          <!-- 그림 보기에서만 쓰는 바닥과 기둥. 픽셀 보기에서는 블록으로 다시 그린다. -->
-          <g id="vecBase">
-            <!-- 바닥에 쌓인 눈. 가로로 꽉 찬 띠를 쓰면 트리 칸 가장자리에서 네모로 뚝 잘려
-                 바닥이 아니라 상자처럼 보인다. 양끝이 자연히 사라지는 타원으로 둔다. -->
-            <ellipse cx="50" cy="128" rx="46" ry="7.5" fill="#dceaf7" opacity=".10"/>
-            <ellipse cx="50" cy="125" rx="30" ry="5" fill="#dceaf7" opacity=".07"/>
-            <!-- 기둥 -->
-            <rect x="45.5" y="112" width="9" height="13" rx="3" fill="#6b4a2e"/>
-            <rect x="45.5" y="112" width="3.2" height="13" rx="1.6" fill="#80593a"/>
-          </g>
+          <!-- 바닥에 쌓인 눈. 가로로 꽉 찬 띠를 쓰면 트리 칸 가장자리에서 네모로 뚝 잘려
+               바닥이 아니라 상자처럼 보인다. 양끝이 자연히 사라지는 타원으로 둔다. -->
+          <ellipse cx="50" cy="128" rx="46" ry="7.5" fill="#dceaf7" opacity=".10"/>
+          <ellipse cx="50" cy="125" rx="30" ry="5" fill="#dceaf7" opacity=".07"/>
+          <!-- 기둥 -->
+          <rect x="45.5" y="112" width="9" height="13" rx="3" fill="#6b4a2e"/>
+          <rect x="45.5" y="112" width="3.2" height="13" rx="1.6" fill="#80593a"/>
           <g id="treeArt"></g>
-          <g id="pixelArt" shape-rendering="crispEdges" hidden></g>
         </svg>
         <div class="xm-orns" id="orns"></div>
         <div class="xm-treeempty" id="treeEmpty" hidden>아직 달린 편지가 없어요.<br>첫 번째 마음을 달아 주세요.</div>
@@ -219,7 +201,6 @@
   </div>
 
   <div class="xm-corner">
-    <button class="xm-btn xm-btn-ghost xm-btn-sm" id="styleBtn" type="button">픽셀 트리</button>
     <button class="xm-btn xm-btn-ghost xm-btn-sm" id="viewBtn" type="button">가까이 보기</button>
     <a class="xm-btn xm-btn-ghost xm-btn-sm" href="teacher.html">선생님 전용</a>
   </div>
@@ -232,7 +213,6 @@ import { ornamentSVG } from "./ornaments.js";
 import { placeAll, TREE, TIERS, tierPath, starPath } from "./tree-layout.js";
 import { demoCount, demoOrnaments, mountDemoBadge } from "./demo-data.js";
 import { mountPixelTrees } from "./pixel-trees.js";
-import { pixelTreeMarkup, preparePixelOrnaments, pixelOrnamentHTML } from "./pixel-tree.js";
 
 const $ = s => document.querySelector(s);
 
@@ -538,36 +518,6 @@ $('#viewBtn').addEventListener('click', () => {
   setView(cam.classList.contains('zoom') ? 'full' : 'zoom');
 });
 
-/* ── 그림 트리와 픽셀 트리 ─────────────────────────────────────
-   같은 트리를 네모 블록으로 다시 그린 버전이다. 블록을 멋대로 쌓지 않고
-   **원래 윤곽(tierHalfAt)을 그대로 찍어 내므로** 두 보기의 실루엣이 같고,
-   학생이 찍어 둔 자리에 그대로 걸린다.
-   주소에 ?style=pixel 을 붙이면 처음부터 픽셀 보기로 열린다. */
-let pixel = false;
-
-async function setStyle(mode) {
-  pixel = mode === 'pixel';
-  document.body.classList.toggle('pixel', pixel);
-  $('#styleBtn').textContent = pixel ? '그림 트리' : '픽셀 트리';
-  if (pixel && !$('#pixelArt').innerHTML) $('#pixelArt').innerHTML = pixelTreeMarkup();
-  $('#pixelArt').hidden = !pixel;
-  $('#treeArt').style.display = pixel ? 'none' : '';
-  $('#vecBase').style.display = pixel ? 'none' : '';
-
-  // 오너먼트를 다시 그린다(픽셀 그림을 먼저 만들어 둬야 한다)
-  if (pixel) await preparePixelOrnaments();
-  for (const el of nodes.values()) el.remove();
-  nodes.clear();
-  firstPaint = true;
-  render();
-
-  const u = new URL(location.href);
-  if (pixel) u.searchParams.set('style', 'pixel'); else u.searchParams.delete('style');
-  history.replaceState(null, '', u);
-}
-
-$('#styleBtn').addEventListener('click', () => setStyle(pixel ? 'vector' : 'pixel'));
-
 // 화면이 바뀌면(TV 해상도 전환, 폰 돌리기) 훑을 구간을 다시 잡는다
 window.addEventListener('resize', () => { if (cam.classList.contains('zoom')) fitCamera(); });
 
@@ -625,8 +575,7 @@ function render(freshIds = new Set()) {
       const it = byId.get(p.id);
       el = document.createElement('div');
       el.className = 'xm-hang';
-      const art = pixel ? pixelOrnamentHTML(it.ornament) : ornamentSVG(it.ornament, 64);
-      el.innerHTML = `<span class="xm-sway">${art}</span>${labelHTML(it)}`;
+      el.innerHTML = `<span class="xm-sway">${ornamentSVG(it.ornament, 64)}</span>${labelHTML(it)}`;
       // 같은 모양이라도 박자와 폭이 달라야 한 몸처럼 움직이지 않는다
       const sway = el.querySelector('.xm-sway');
       sway.style.setProperty('--sway', (4.2 + Math.random() * 2.8).toFixed(2) + 's');
@@ -664,9 +613,7 @@ function render(freshIds = new Set()) {
 
 /* 처음 보기를 정한다. nodes와 render가 다 만들어진 뒤라야 한다 —
    setView가 띠 따라가기를 켜고 끄면서 nodes를 건드린다. */
-const q0 = new URLSearchParams(location.search);
-setView(q0.get('view') === 'zoom' ? 'zoom' : 'full');
-if (q0.get('style') === 'pixel') setStyle('pixel');
+setView(new URLSearchParams(location.search).get('view') === 'zoom' ? 'zoom' : 'full');
 
 /* 미리보기: ?demo=160 이면 Firebase를 보지 않고 가짜 트리를 그린다.
    축제 당일처럼 꽉 찬 트리를 실제 컬렉션을 더럽히지 않고 보려고 둔 길이다. */

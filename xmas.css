@@ -431,8 +431,7 @@
    **전부 반짝이게 하지 않는다**(.tw가 붙은 것만). filter 애니메이션은 한 장 한 장
    다시 칠해야 해서 160개면 메인 스레드에서 가장 비싼 일이 된다. 절반 남짓만 켜도
    박자가 제각각이라 눈에는 똑같이 반짝이고, 값은 절반이다. */
-.xm-hang.tw .xm-sway > svg,
-.xm-hang.tw .xm-sway > img {
+.xm-hang.tw .xm-sway > svg {
   animation: xm-twinkle var(--tw, 3.6s) ease-in-out infinite;
 }
 @keyframes xm-twinkle {
