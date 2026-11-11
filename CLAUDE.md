@@ -27,9 +27,28 @@ GitHub Pages로 배포된다(`hoseong911/xmas` → `https://hoseong911.github.io
 | `ornaments.js` | 오너먼트 그림 10종 |
 | `tree-layout.js` | 트리에 거는 자리 계산 (테스트: `test/xmas.test.mjs`) |
 | `xmas.css` | 네 화면 공통 스타일 |
+| `demo-data.js` | 미리보기용 가짜 데이터(`?demo=160`) |
 | `_preview.html` | PC/패드/폰 동시 미리보기 |
 
 실행: `npm run preview` 뒤 `http://localhost:4173/xmas/_preview.html`. 테스트: `npm test`.
+
+## 꽉 찬 트리를 미리 본다 (`?demo=160`)
+
+`index.html` 과 `tree.html` 은 주소 끝의 **`?demo=개수`** 를 받는다(최대 400).
+붙이면 Firebase를 보지 않고 `demo-data.js` 가 만든 가짜 선생님 24명과 가짜 오너먼트로
+**축제 당일처럼 꽉 찬 화면**을 그린다. `_preview.html` 위쪽 [데이터] 칸에서 고르면 된다.
+
+- **아무것도 저장하지 않는다.** demo 모드에서는 [여기에 달기]도 쓰는 척만 하고 끝난다.
+  실제 컬렉션에 시험 편지를 쌓지 않으려고 둔 길이다(쌓으면 나중에 지워야 하고,
+  지우다가 진짜 편지를 잘못 건드릴 수 있다).
+- 자리는 학생이 찍을 때와 **같은 길**(`clampSpot` → `nudgeFree`)을 거친다. 그래야
+  "이만큼 모이면 이렇게 보인다"가 실제와 어긋나지 않는다.
+- 난수를 id에서 뽑으므로 새로고침해도 같은 트리가 나온다(고치기 전후를 눈으로 대조할 수 있다).
+- 높이는 `u^0.65` 로 눌러 아래에 조금 더 모으고, 가로는 **그 높이에서 가지가 실제로 차지하는
+  너비**에 맞춘다. 가로를 밑단 너비로 고정하면 좁은 윗단에 들어가는 점이 거의 안 나와
+  꼭대기가 텅 비고, 높이를 고르게 뿌리면 거꾸로 윗단이 아랫단보다 빽빽해 보인다.
+- `npm install` 을 한 번 해 두면 puppeteer로 세 기기 화면을 그대로 찍어 볼 수 있다
+  (`node_modules/` 는 `.gitignore`에 있다).
 
 ## Firebase는 hoistory와 같은 프로젝트를 쓴다 — 중요
 

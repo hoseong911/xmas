@@ -18,6 +18,8 @@
   .seg button.on{background:var(--accent);color:#231a07}
   .btn{background:var(--accent);border:none;color:#231a07;font-family:inherit;font-size:13px;font-weight:800;padding:7px 14px;border-radius:8px;cursor:pointer}
   .btn:hover{filter:brightness(1.08)}
+  .sel{background:#0d0f15;border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer}
+  .sel-lab{font-size:12px;color:var(--sub);font-weight:700;margin-right:-6px}
   .path{background:#0d0f15;border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:6px 10px;width:230px}
   main{flex:1;min-height:0;overflow:hidden;display:flex;align-items:flex-start;justify-content:center}
   /* 세 기기를 실제 크기로 나란히 놓고, 전체를 transform:scale로 통째로 줄인다.
@@ -41,6 +43,15 @@
     <button data-page="teacher.html">선생님</button>
     <button data-page="admin.html">관리</button>
   </div>
+  <span class="sel-lab">데이터</span>
+  <select id="demo" class="sel" title="가짜 오너먼트를 몇 개 걸어 볼지 고릅니다">
+    <option value="">실제 데이터</option>
+    <option value="40">가짜 40개</option>
+    <option value="100">가짜 100개</option>
+    <option value="160" selected>가짜 160개</option>
+    <option value="260">가짜 260개</option>
+    <option value="400">가짜 400개</option>
+  </select>
   <input id="customPath" class="path" placeholder="직접 경로 (예: tree.html)">
   <button id="reload" class="btn">새로고침</button>
 </header>
@@ -69,9 +80,13 @@ let page = 'index.html';
 function load(){
   const custom = document.getElementById('customPath').value.trim();
   const p = custom || page;
+  // 가짜 데이터는 ?demo=개수 로 넘긴다(index.html, tree.html이 받는다).
+  // 파이어베이스를 보지 않고 축제 당일처럼 꽉 찬 화면을 그려 준다.
+  const demo = document.getElementById('demo').value;
+  const q = (demo ? 'demo=' + demo + '&' : '') + '_t=' + Date.now();
   const sep = p.includes('?') ? '&' : '?';
   ['fPc','fPad','fMo'].forEach(id => {
-    document.getElementById(id).src = BASE + p + sep + '_t=' + Date.now();
+    document.getElementById(id).src = BASE + p + sep + q;
   });
 }
 
@@ -94,6 +109,7 @@ document.querySelectorAll('#pages button').forEach(b => {
   });
 });
 document.getElementById('reload').addEventListener('click', load);
+document.getElementById('demo').addEventListener('change', load);
 document.getElementById('customPath').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
 window.addEventListener('resize', fit);
 fit(); load();

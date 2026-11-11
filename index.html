@@ -243,6 +243,7 @@ import { TREE, TIERS, tierPath, starPath, placeAll, clampSpot, nudgeFree, autoSp
   from "./tree-layout.js";
 import { icon } from "./shared/icons.js";
 import { containsBadWord } from "./shared/profanity.js";
+import { demoCount, demoOrnaments, demoTeachers, mountDemoBadge } from "./demo-data.js";
 
 const $ = s => document.querySelector(s);
 
@@ -260,6 +261,11 @@ let teachers = [];
 let step = 1;
 const form = { sid: '', name: '', teacherId: '', teacherName: '', body: '', ornament: '', x: null, y: null };
 let sending = false;
+
+/* 미리보기: ?demo=160 이면 Firebase를 보지 않고 가짜 선생님과 가짜 오너먼트로
+   축제 당일처럼 꽉 찬 화면을 그린다. 이 모드에서는 실제로 저장하지 않는다. */
+const DEMO = demoCount();
+mountDemoBadge(DEMO);
 
 // ── 눈과 아이콘 ────────────────────────────────────────────────
 mountSnow($('#snow'));
@@ -353,6 +359,7 @@ $('#go1').addEventListener('click', () => {
 
 // ── 2단계: 선생님 고르기 ──────────────────────────────────────
 async function loadTeachers() {
+  if (DEMO) { teachers = demoTeachers(); renderTeachers(); return; }
   try {
     const snap = await getDocs(query(collection(db, C_TEACHERS), orderBy('order')));
     teachers = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => t.name);
@@ -471,18 +478,23 @@ function drawPickTree() {
   add('path', { d: starPath(50, 11, 8.4, 3.5), fill: '#f7d479' });
 }
 
-/** 이미 걸린 오너먼트를 불러와 흐리게 깔아 둔다(빈자리를 눈으로 찾게) */
+/** 이미 걸린 것들을 트리에 깔아 둔다(빈자리를 눈으로 찾게) */
+function paintTaken(items) {
+  const placed = placeAll(items);
+  taken = placed.map(p => ({ x: p.x, y: p.y }));
+  const byId = new Map(items.map(it => [it.id, it]));
+  $('#pickOrns').innerHTML = placed.map(p =>
+    `<div class="xm-hang" style="left:${p.x}%;top:${(p.y / TREE.vbH * 100)}%;width:${p.w}%">
+       <span class="xm-sway">${ornamentSVG(byId.get(p.id).ornament, 64)}</span>
+     </div>`).join('');
+}
+
+/** 이미 걸린 오너먼트를 불러온다 */
 async function loadTaken() {
+  if (DEMO) { paintTaken(demoOrnaments(DEMO)); return; }
   try {
     const snap = await getDocs(query(collection(db, C_ORNAMENTS), orderBy('createdAt')));
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const placed = placeAll(items);
-    taken = placed.map(p => ({ x: p.x, y: p.y }));
-    const byId = new Map(items.map(it => [it.id, it]));
-    $('#pickOrns').innerHTML = placed.map(p =>
-      `<div class="xm-hang" style="left:${p.x}%;top:${(p.y / TREE.vbH * 100)}%;width:${p.w}%">
-         <span class="xm-sway">${ornamentSVG(byId.get(p.id).ornament, 64)}</span>
-       </div>`).join('');
+    paintTaken(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   } catch (e) {
     // 못 불러와도 자리는 고를 수 있어야 한다(겹칠 뿐이다)
     console.warn(e);
@@ -560,6 +572,14 @@ async function send() {
        트리 화면이 읽는 것은 오너먼트 문서뿐이고(익명), 내용은 편지 문서에만 있다.
        둘의 문서 id를 같게 맞춰 두어야 선생님 화면이 "내 편지가 트리 어디에 있는지"를
        찾을 수 있다. 그래서 id를 먼저 만들어 둔다. */
+    // 미리보기에서는 쓰는 척만 한다(실제 컬렉션에 시험 편지를 남기지 않는다)
+    if (DEMO) {
+      $('#doneOrn').innerHTML = ornamentSVG(form.ornament, 148, 'xm-bigorn');
+      $('#doneMsg').textContent = `${form.teacherName} 선생님께 마음이 전해졌어요.`;
+      show(6);
+      startDoneTimer();
+      return;
+    }
     const id = doc(collection(db, C_LETTERS)).id;
     const batch = writeBatch(db);
     batch.set(doc(db, C_LETTERS, id), {
