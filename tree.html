@@ -125,7 +125,7 @@
       font-size: .95cqw; line-height: 1.2; font-weight: 700;
       color: #fff;
       opacity: 0;
-      transition: opacity 1.1s ease;
+      transition: opacity .75s ease;
       text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 0 8px rgba(0, 0, 0, .85);
       pointer-events: none;
     }
@@ -271,10 +271,11 @@ const ZOOM    = 2.0;    // 적어도 이만큼은 당긴다
 const ZOOM_MAX = 3.2;   // 세로로 긴 화면에서도 이보다 더 당기지는 않는다
 const FILL    = 1.6;    // 당긴 트리가 화면 높이의 이 정도는 되어야 훑을 맛이 난다
 const PAN_SEC = 24;     // 꼭대기에서 밑동까지 한 번 훑는 데 걸리는 초
-const BAND_ON  = 7;     // 이름이 켜지는 띠의 두께(트리 좌표, 위아래로 이만큼)
-const BAND_OFF = 12;    // 꺼지는 선은 넉넉히 둔다 — 같으면 경계에서 깜빡인다
-const LAB_DX   = 4.6;   // 이름끼리 이만큼 안 떨어지면 뒤엣것은 쉰다(가로)
-const LAB_DY   = 2.6;   //                                        (세로)
+const BAND_ON  = 12;    // 이름이 켜지는 띠의 두께(트리 좌표, 위아래로 이만큼)
+const BAND_OFF = 18;    // 꺼지는 선은 넉넉히 둔다 — 같으면 경계에서 깜빡인다
+const LAB_DX   = 4.2;   // 이름끼리 이만큼 안 떨어지면 뒤엣것은 차례를 기다린다(가로)
+const LAB_DY   = 2.2;   //                                                  (세로)
+const MIN_ON   = 2000;  // 한 번 뜬 이름은 적어도 이만큼은 보여 준다(밀리초)
 const cam = $('#cam');
 
 /* 배율과 훑을 구간을 화면에 맞춰 셈한다.
@@ -321,40 +322,85 @@ function setView(mode) {
    애니메이션이 지금 어디쯤인지를 시간으로 되짚지 않고 **실제로 그려진 자리**에서
    읽는다(getBoundingClientRect는 transform이 먹은 뒤의 값이다). 가속 곡선이나
    브라우저 차이와 무관하게 늘 맞고, 사람이 보기 모드를 바꿔도 저절로 따라온다. */
+
+/**
+ * 카메라가 지금 보고 있는 높이(트리 좌표).
+ *
+ * 처음에는 "화면 한가운데에 무엇이 오는가"로 셈했는데, **그러면 트리 맨 아래가
+ * 영영 안 걸린다** — 밑동이 화면 바닥에 닿는 것으로 훑기가 끝나므로 밑동은
+ * 화면 한가운데까지 올라오지 않는다. 그래서 160개 중 스무 개 남짓이 한 번도
+ * 이름을 못 띄웠다.
+ * 지금은 **얼마나 훑었는지(0~1)를 꼭대기부터 밑동까지로 펼친다.** 그래야 처음과
+ * 끝에서 트리의 양끝이 꼭 한 번씩 걸린다.
+ */
+function focusAt() {
+  const r = $('#wrap').getBoundingClientRect();
+  const travel = r.height - window.innerHeight;     // 훑을 수 있는 거리(화면 밖으로 나간 몫)
+  if (!r.height) return null;
+  if (travel <= 1) return TREE.vbH / 2;             // 훑을 것이 없으면 가운데만 본다
+  const p = Math.min(1, Math.max(0, -r.top / travel));
+  return TREE.firstRowY + p * (TREE.baseY - TREE.firstRowY);
+}
 let camRaf = 0;
 let lastFocus = 0;
 
-function updateFocus() {
-  const r = $('#wrap').getBoundingClientRect();
-  if (!r.height) return;
-  const focusY = ((window.innerHeight / 2 - r.top) / r.height) * TREE.vbH;
+/* 카메라가 보고 있는 띠 안의 이름을 켠다.
 
-  /* 1) 켤 것을 고른다.
-        켜는 선(BAND_ON)보다 끄는 선(BAND_OFF)을 넉넉히 잡는다. 두 선이 같으면
-        카메라가 아주 천천히 움직이는 구간에서 경계에 걸친 이름이 켜졌다 꺼졌다
-        한다 — 눈에는 깜빡임으로 보인다. */
+   여기서 맞물려 있는 것이 둘이다.
+     · 깜빡이지 않아야 한다 — 매 프레임 주인이 바뀌면 떨리는 것처럼 보인다.
+     · 그렇다고 한 이름이 자리를 끝까지 쥐고 있으면 **옆에 밀린 이름은 끝내
+       한 번도 못 뜬다**(처음에 이렇게 만들었다가 160개 중 58개가 안 떴다).
+   그래서 **아직 한 번도 못 뜬 이름을 먼저 들여보내되, 한 번 뜬 이름은 MIN_ON 동안은
+   지우지 않는다.** 자리를 뺏기는 것은 새 이름이 올라올 때뿐이고, 한 이름이 새치기를
+   일으키는 것은 띠에 들어올 때 한 번뿐이라 어수선해지지 않는다. */
+function updateFocus(now) {
+  const focusY = focusAt();
+  if (focusY == null) return;
+
   const want = [];
   const off = [];
   for (const el of nodes.values()) {
     const on = el.classList.contains('lab-on');
     const d = Math.abs((+el.dataset.y || 0) - focusY);
-    if (d < (on ? BAND_OFF : BAND_ON)) {
-      want.push({ el, on, d, x: +el.dataset.x || 50, y: +el.dataset.y || 0 });
-    } else {
+    /* 켜는 선(BAND_ON)보다 끄는 선(BAND_OFF)을 넉넉히 잡는다. 두 선이 같으면
+       카메라가 느린 구간에서 경계에 걸친 이름이 켜졌다 꺼졌다 한다. */
+    if (d >= (on ? BAND_OFF : BAND_ON)) {
       off.push(el);
+      if (d >= BAND_OFF) el.dataset.shown = '';   // 띠를 아주 벗어나면 다음 차례를 위해 비운다
+      continue;
     }
+    want.push({
+      el, d,
+      x: +el.dataset.x || 50,
+      y: +el.dataset.y || 0,
+      on,
+      keep:  on && (now - (+el.dataset.since || now)) < MIN_ON,  // 아직 지워선 안 되는 때
+      fresh: el.dataset.shown !== '1',                           // 이번 차례에 아직 못 뜬 이름
+    });
   }
 
-  /* 2) 바짝 붙은 것끼리는 글자가 겹쳐 읽을 수 없다. 자리는 하나만 내준다.
-        **이미 켜져 있는 것을 먼저 줄 세운다** — 매번 가까운 순으로 새로 뽑으면
-        카메라가 조금만 움직여도 주인이 바뀌어 서로 번갈아 깜빡인다. */
-  want.sort((a, b) => (b.on - a.on) || (a.d - b.d));
+  /* 바짝 붙은 것끼리는 글자가 겹쳐 읽을 수 없다. 자리는 하나만 내준다.
+     순서가 이 화면의 전부다.
+       1 아직 MIN_ON이 안 지난 것 — 떴다가 바로 지워지면 그것이 깜빡임이다
+       2 이번 차례에 아직 못 뜬 이름 — 여기서 밀리면 끝내 한 번도 못 뜬다
+       3 이미 떠 있는 것 — 같은 값이면 자리를 옮기지 않는 편이 조용하다
+       4 카메라에 가까운 것 */
+  want.sort((a, b) =>
+    (b.keep ? 1 : 0) - (a.keep ? 1 : 0) ||
+    (b.fresh ? 1 : 0) - (a.fresh ? 1 : 0) ||
+    (b.on ? 1 : 0) - (a.on ? 1 : 0) ||
+    (a.d - b.d));
+
   const kept = [];
   for (const c of want) {
     const clash = kept.some(k => Math.abs(k.x - c.x) < LAB_DX && Math.abs(k.y - c.y) < LAB_DY);
     if (clash) { off.push(c.el); continue; }
     kept.push(c);
-    c.el.classList.add('lab-on');
+    if (!c.el.classList.contains('lab-on')) {
+      c.el.classList.add('lab-on');
+      c.el.dataset.since = now;
+      c.el.dataset.shown = '1';
+    }
   }
   for (const el of off) el.classList.remove('lab-on');
 }
@@ -366,7 +412,7 @@ function startFocus() {
     // 0.3초에 한 번이면 넉넉하다. 자주 볼수록 경계에서 들썩이기만 한다.
     if (now - lastFocus < 300) return;
     lastFocus = now;
-    updateFocus();
+    updateFocus(now);
   };
   camRaf = requestAnimationFrame(tick);
 }
@@ -374,7 +420,10 @@ function startFocus() {
 function stopFocus() {
   if (camRaf) cancelAnimationFrame(camRaf);
   camRaf = 0;
-  for (const el of nodes.values()) el.classList.remove('lab-on');
+  for (const el of nodes.values()) {
+    el.classList.remove('lab-on');
+    el.dataset.shown = '';
+  }
 }
 
 $('#viewBtn').addEventListener('click', () => {
