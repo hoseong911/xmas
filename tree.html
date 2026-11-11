@@ -85,37 +85,28 @@
     }
 
     /* ── 꼭대기 별 ───────────────────────────────────────────────
-       통째로 깜빡이게 두면 별이 아니라 전구가 된다. 빛을 받는 물건처럼 보이려면
-       **빛이 표면을 훑고 지나가고, 그 빛이 모서리를 지날 때 순간 터져야** 한다.
-       그래서 셋으로 나눴다.
-         쓸림  밝은 띠 하나가 별 안쪽을 비스듬히 가로지른다(별 모양으로 오려 놨다)
-         섬광  띠가 한가운데를 지날 때 가로로 길쭉한 빛이 0.4초쯤 터졌다 사라진다
-         둘레  뒤에 깔린 빛이 아주 천천히 숨 쉰다(이것만 느리다)
-       셋이 한 박자(3.2초)를 공유하되 터지는 때를 어긋나게 둔 것이 전부다.
+       별 전체를 켰다 껐다 하면 전구가 되고, 빛 한 줄기가 훑고 지나가면 금속판이 된다.
+       **샹들리에는 그렇게 안 반짝인다** — 작은 크리스털 여러 개가 **저마다 다른 때에
+       아주 짧게** 번쩍인다. 그래서 별 위에 작은 섬광 아홉 개를 흩어 두고, 하나하나
+       길이도 시작도 다르게 줬다. 한 번 번쩍이는 데 0.2초쯤이고 나머지 시간은 꺼져 있다.
+       뒤에 깔린 둘레 빛만 천천히 숨 쉰다.
 
        SVG 안에서 transform을 쓸 때는 **transform-box: fill-box를 꼭 같이 적는다.**
        안 적으면 SVG 전체 좌표를 기준으로 커져 별이 화면 밖으로 날아간다. */
-    #starGlow, #starSheen, #starGlint { transform-box: fill-box; transform-origin: center }
+    #starGlow, .xm-spark { transform-box: fill-box; transform-origin: center }
 
-    #starGlow  { animation: xm-starglow 3.2s ease-in-out infinite alternate }
-    #starSheen { animation: xm-starsheen 3.2s linear infinite }
-    #starGlint { animation: xm-starglint 3.2s ease-out infinite; opacity: 0 }
-
+    #starGlow { animation: xm-starglow 3.6s ease-in-out infinite alternate }
     @keyframes xm-starglow {
-      from { opacity: .72; transform: scale(.94) }
-      to   { opacity: 1;   transform: scale(1.07) }
+      from { opacity: .76; transform: scale(.95) }
+      to   { opacity: 1;   transform: scale(1.06) }
     }
-    /* 띠는 별 바깥에서 들어와 바깥으로 빠진다. 나간 뒤에는 다음 바퀴까지 그냥 서 있는다
-       (오려 둔 밖이라 안 보인다) — 그래야 훑는 순간만 도드라진다. */
-    @keyframes xm-starsheen {
-      0%   { transform: translateX(-13px) rotate(-20deg) }
-      30%  { transform: translateX(13px)  rotate(-20deg) }
-      100% { transform: translateX(13px)  rotate(-20deg) }
-    }
-    @keyframes xm-starglint {
-      0%, 10% { opacity: 0; transform: scale(.25) }
-      15%     { opacity: 1; transform: scale(1) }
-      24%     { opacity: 0; transform: scale(.8) }
+
+    /* 꺼져 있는 시간이 길어야 "번쩍"으로 읽힌다. 켜져 있는 구간은 전체의 15%쯤이다. */
+    .xm-spark { opacity: 0; animation: xm-spark var(--sp, 1.4s) ease-out infinite }
+    @keyframes xm-spark {
+      0%, 64% { opacity: 0; transform: scale(.25) }
+      73%     { opacity: 1; transform: scale(1) }
+      87%     { opacity: 0; transform: scale(.55) }
       100%    { opacity: 0; transform: scale(.25) }
     }
 
@@ -221,10 +212,12 @@ import { db, C_ORNAMENTS, watchConfig, esc, mountSnow } from "./xmas-core.js";
 import { ornamentSVG } from "./ornaments.js";
 import { placeAll, TREE, TIERS, tierPath, starPath } from "./tree-layout.js";
 import { demoCount, demoOrnaments, mountDemoBadge } from "./demo-data.js";
+import { mountPixelTrees } from "./pixel-trees.js";
 
 const $ = s => document.querySelector(s);
 
 mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
+mountPixelTrees(document.querySelector('.xm-campus'));
 
 /* ── 트리 그리기 ───────────────────────────────────────────────
    가지는 아래 단부터 그린다. 그래야 위 단의 물결진 밑자락이 아래 단을 덮으며
@@ -271,8 +264,8 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
      (오너먼트와 달리 트리는 화면에 하나뿐이라 그라데이션 id를 써도 안 엉킨다.)
 
      빛이 viewBox 위로 삐져나가면 거기서 뚝 잘려 네모 자국이 생긴다. 그래서 별을
-     조금 내리고 빛 반지름을 위쪽 여백 안에 맞췄다(cy - r >= 0). **섬광도 마찬가지라
-     세로는 짧게, 가로만 길게 뻗는다** — 위아래로 길게 뽑으면 꼭대기가 잘린다. */
+     조금 내리고 빛 반지름을 위쪽 여백 안에 맞췄다(cy - r >= 0). 작은 섬광들도
+     같은 까닭으로 별 둘레를 크게 벗어나지 않게 뒀다. */
   const STAR_Y = 11, GLOW_R = 11;
   const defs = document.createElementNS(ns, 'defs');
 
@@ -290,59 +283,63 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
     defs.appendChild(g);
   };
 
-  // 뒤에 깔리는 둥근 빛
   mkGrad('radialGradient', 'xmStarGlow', {},
     [['0%', '#ffe9a8', '.6'], ['45%', '#f0c457', '.24'], ['100%', '#f0c457', '0']]);
-  // 별 위를 훑고 지나가는 밝은 띠
-  mkGrad('linearGradient', 'xmStarSheen', { x1: '0', y1: '0', x2: '1', y2: '0' },
-    [['0%', '#fff', '0'], ['45%', '#fffdf2', '.9'], ['55%', '#fffdf2', '.9'], ['100%', '#fff', '0']]);
-  // 섬광(가운데가 희고 끝으로 갈수록 사라진다). 꼬리를 길게 끌면 얼룩처럼 보여 짧게 끊는다.
-  mkGrad('radialGradient', 'xmStarBurst', {},
-    [['0%', '#ffffff', '1'], ['18%', '#fff8e2', '.9'], ['46%', '#ffe09a', '.3'], ['100%', '#ffd166', '0']]);
-
-  // 띠가 별 밖으로 번지지 않게 별 모양으로 오려 둔다
-  const clip = document.createElementNS(ns, 'clipPath');
-  clip.setAttribute('id', 'xmStarClip');
-  const clipStar = document.createElementNS(ns, 'path');
-  clipStar.setAttribute('d', starPath(50, STAR_Y, 8.4, 3.5));
-  clip.appendChild(clipStar);
-  defs.appendChild(clip);
+  defs.appendChild(document.createComment('샹들리에 섬광에 쓰는 빛'));
+  mkGrad('radialGradient', 'xmSparkGlow', {},
+    [['0%', '#ffffff', '.95'], ['40%', '#fff3cf', '.35'], ['100%', '#ffe09a', '0']]);
   art.appendChild(defs);
 
   add('circle', { id: 'starGlow', cx: 50, cy: STAR_Y, r: GLOW_R, fill: 'url(#xmStarGlow)' });
-  /* 가만히 있을 때는 금색으로 둔다. 처음에는 거의 흰 별로 뒀는데, 그러면 빛이 훑고
-     지나가도 더 밝아질 자리가 없어 아무 일도 안 일어난 것처럼 보였다. */
+  /* 가만히 있을 때는 금색으로 둔다. 거의 흰 별로 뒀더니 섬광이 터져도 더 밝아질
+     자리가 없어 아무 일도 안 일어난 것처럼 보였다. */
   add('path', { d: starPath(50, STAR_Y, 8.4, 3.5), fill: '#edc05c' });
   add('path', { d: starPath(50, STAR_Y - 0.5, 4.2, 1.8), fill: '#ffeaae', 'fill-opacity': 0.85 });
 
-  // 쓸림 — 별 안쪽에서만 보인다
-  const sheenG = document.createElementNS(ns, 'g');
-  sheenG.setAttribute('clip-path', 'url(#xmStarClip)');
-  art.appendChild(sheenG);
-  const sheen = document.createElementNS(ns, 'rect');
-  for (const [k, v] of Object.entries({
-    id: 'starSheen', x: 50 - 3, y: STAR_Y - 11, width: 6, height: 22,
-    fill: 'url(#xmStarSheen)',
-  })) sheen.setAttribute(k, v);
-  sheenG.appendChild(sheen);
+  /* ── 샹들리에 섬광 ───────────────────────────────────────────
+     꼭지 다섯과 안쪽 네 군데에 작은 네 갈래 빛을 둔다. 길이와 시작을 모두 달리해
+     서로 겹치지 않게 번쩍인다. 자리와 길이는 적어 둔 값이라 매번 같다
+     (난수로 두면 새로고침할 때마다 다른 데서 번쩍여 어디를 봐야 할지 모르게 된다). */
+  const sparkPath = (cx, cy, r, k = 0.17) => {
+    const q = r * k;
+    return `M${cx} ${cy - r}Q${cx + q} ${cy - q} ${cx + r} ${cy}`
+         + `Q${cx + q} ${cy + q} ${cx} ${cy + r}`
+         + `Q${cx - q} ${cy + q} ${cx - r} ${cy}`
+         + `Q${cx - q} ${cy - q} ${cx} ${cy - r}Z`;
+  };
 
-  /* 섬광 — 가로로 긴 줄기와 짧은 세로 줄기가 십자로 겹친다. 맨 위에 올라와야 한다.
-     세로를 길게 뽑으면 viewBox 위로 넘쳐 꼭대기가 네모로 잘린다(cy - ry >= 0). */
-  const glint = document.createElementNS(ns, 'g');
-  glint.setAttribute('id', 'starGlint');
-  art.appendChild(glint);
-  [[19, 2.1], [2.0, 9.5]].forEach(([rx, ry]) => {
-    const e = document.createElementNS(ns, 'ellipse');
-    for (const [k, v] of Object.entries({ cx: 50, cy: STAR_Y, rx, ry, fill: 'url(#xmStarBurst)' })) {
-      e.setAttribute(k, v);
+  // [꼭지각(도), 중심에서 떨어진 거리, 크기, 한 바퀴(초), 시작 어긋남(초)]
+  const SPARKS = [
+    [-90,  8.2, 3.0, 1.30, 0.00],
+    [-18,  8.2, 2.6, 1.70, 0.55],
+    [ 54,  8.2, 2.8, 1.45, 1.05],
+    [126,  8.2, 2.4, 1.90, 0.30],
+    [198,  8.2, 2.7, 1.55, 0.85],
+    [-54,  3.6, 1.9, 1.15, 0.45],
+    [ 18,  3.6, 1.7, 1.35, 0.95],
+    [162,  3.6, 2.0, 1.25, 0.15],
+    [ 90,  3.2, 1.6, 1.60, 0.70],
+  ];
+  for (const [deg, dist, size, dur, delay] of SPARKS) {
+    const a = deg * Math.PI / 180;
+    const cx = 50 + Math.cos(a) * dist;
+    const cy = STAR_Y + Math.sin(a) * dist;
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'xm-spark');
+    g.style.setProperty('--sp', dur + 's');
+    g.style.animationDelay = `-${delay}s`;
+    // 둥근 빛을 먼저 깔고 그 위에 네 갈래를 얹는다(갈래만 두면 종잇조각처럼 보인다)
+    const halo = document.createElementNS(ns, 'circle');
+    for (const [k, v] of Object.entries({ cx, cy, r: size * 1.5, fill: 'url(#xmSparkGlow)' })) {
+      halo.setAttribute(k, v);
     }
-    glint.appendChild(e);
-  });
-  const core = document.createElementNS(ns, 'circle');
-  for (const [k, v] of Object.entries({ cx: 50, cy: STAR_Y, r: 3.4, fill: 'url(#xmStarBurst)' })) {
-    core.setAttribute(k, v);
+    const ray = document.createElementNS(ns, 'path');
+    ray.setAttribute('d', sparkPath(cx, cy, size));
+    ray.setAttribute('fill', '#fffdf4');
+    g.appendChild(halo);
+    g.appendChild(ray);
+    art.appendChild(g);
   }
-  glint.appendChild(core);
 })();
 
 watchConfig(c => {

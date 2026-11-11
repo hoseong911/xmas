@@ -126,10 +126,12 @@ import { db, C_TEACHERS, XMAS_FN_URL, loadConfig, openAtLabel, esc, nl2br, stude
   from "./xmas-core.js";
 import { ornamentSVG } from "./ornaments.js";
 import { icon } from "./shared/icons.js";
+import { mountPixelTrees } from "./pixel-trees.js";
 
 const $ = s => document.querySelector(s);
 
 mountSnow($('#snow'), 60);
+mountPixelTrees(document.querySelector('.xm-campus'));
 document.querySelectorAll('[data-icon]').forEach(el => {
   el.innerHTML = icon(el.dataset.icon, el.dataset.iconSize ? +el.dataset.iconSize : 24);
 });
