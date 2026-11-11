@@ -920,9 +920,12 @@ $('#lList').addEventListener('click', async e => {
       const batch = writeBatch(db);
       batch.update(doc(db, C_LETTERS, id), { hidden: false });
       /* 걸린 순서와 자리를 그대로 되살린다. 자리를 빼먹으면 학생이 골라 둔 곳이
-         아니라 자동으로 잡아 주는 자리로 옮겨 가 버린다. */
+         아니라 자동으로 잡아 주는 자리로 옮겨 가 버리고, 학번과 이름을 빼먹으면
+         가까이 보기에서 그 오너먼트만 이름 없이 뜬다. */
       const back = {
         ornament: l.ornament,
+        studentId: l.studentId,
+        studentName: l.studentName,
         createdAt: l.createdAt ? new Date(l.createdAt) : serverTimestamp(),
       };
       if (l.x != null && l.y != null) { back.x = l.x; back.y = l.y; }

@@ -59,11 +59,36 @@ export function demoOrnaments(n = demoCount()) {
     out.push({
       id,
       ornament: ORNAMENT_KEYS[Math.floor(hash01(id, 7) * ORNAMENT_KEYS.length)],
+      // 가까이 보기에서 뜨는 두 줄. 실제 문서에도 같은 이름으로 들어 있다.
+      studentId: demoSid(id),
+      studentName: demoName(id),
       x: +spot.x.toFixed(2),
       y: +spot.y.toFixed(2),
     });
   }
   return out;
+}
+
+/* 가짜 학번과 이름. 1~3학년 1~12반 1~30번을 고루 섞는다.
+   길이가 제각각이어야 라벨이 가장 긴 이름에서 넘치지 않는지 볼 수 있다. */
+const SURNAME = '김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남'.split('');
+const GIVEN = [
+  '서연', '지우', '하준', '도윤', '시우', '예준', '지호', '수아', '하은', '지안',
+  '건우', '서윤', '민재', '유진', '채원', '현우', '소율', '태윤', '다인', '시현',
+  '가온', '라온', '해든', '이든', '리아', '주원', '은우', '성민', '예린', '하율',
+];
+
+function demoSid(id) {
+  const grade = 1 + Math.floor(hash01(id, 21) * 3);
+  const cls   = 1 + Math.floor(hash01(id, 22) * 12);
+  const no    = 1 + Math.floor(hash01(id, 23) * 30);
+  return String(grade) + String(cls).padStart(2, '0') + String(no).padStart(2, '0');
+}
+
+function demoName(id) {
+  const sur = SURNAME[Math.floor(hash01(id, 24) * SURNAME.length)];
+  const giv = GIVEN[Math.floor(hash01(id, 25) * GIVEN.length)];
+  return sur + giv;
 }
 
 /** 가짜 선생님 명단 — 이름 길이와 수를 실제와 비슷하게 두어 칸 모양을 본다. */

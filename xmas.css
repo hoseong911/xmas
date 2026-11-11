@@ -393,15 +393,6 @@
   to   { filter: drop-shadow(0 0 13px rgba(255,235,170,.95)) }
 }
 
-.xm-treefoot {
-  text-align: center;
-  margin-top: 14px;
-  color: var(--hi-text-muted);
-  font-size: 15px;
-  letter-spacing: -.2px;
-}
-.xm-treefoot b { color: var(--hi-accent); font-size: 21px; font-weight: 800 }
-
 @media (prefers-reduced-motion: reduce) {
   .xm-hang .xm-sway, .xm-hang.fresh .xm-sway, .xm-stars, .xm-orns.mine .xm-hang.mine { animation: none }
 }

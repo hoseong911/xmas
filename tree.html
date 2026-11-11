@@ -9,42 +9,79 @@
   <link rel="stylesheet" href="shared/theme.css">
   <link rel="stylesheet" href="xmas.css">
   <style>
-    body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent }
-    .xm-stage { padding-top: 18px; padding-bottom: 20px }
+    body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overflow: hidden }
 
-    /* 전시용이라 제목을 조금 더 크게 */
-    .xm-treetitle {
-      text-align: center;
-      font-size: 26px; font-weight: 800; letter-spacing: -.6px;
-      margin: 0 0 4px;
+    /* ── 전시 화면은 트리에 자리를 다 내준다 ──────────────────────
+       예전에는 제목과 아래 문구가 트리 위아래를 차지해 큰 TV에서도 트리가
+       화면 한가운데 작게 떴다. 지금은 트리가 화면 높이를 꽉 채우고
+       글자는 빈 밤하늘 위에 겹쳐 둔다.
+       트리 칸은 여전히 폭 하나만 정한다 — aspect-ratio가 높이를 폭에서
+       끌어내므로 둘 다 적으면 어긋나고, 그러면 오너먼트 좌표가 틀어진다. */
+    .xm-treestage {
+      position: fixed; inset: 0; z-index: 2;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
     }
-    .xm-treesub { text-align: center; color: var(--hi-text-muted); font-size: 14px; margin: 0 0 12px }
+    /* 카메라. 가까이 보기에서 이 칸을 통째로 확대하고 위아래로 훑는다. */
+    .xm-cam {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      transform-origin: 50% 0;
+      will-change: transform;
+    }
+    .xm-treestage .xm-treewrap {
+      width: min(100%, 100dvh * 100 / 130);
+      margin: 0;
+      container-type: inline-size;   /* 라벨 글자 크기를 트리 폭에 맞추려고 */
+    }
+
+    /* 글자는 트리 위에 겹친다. 가로로 넓은 화면(트리가 높이에 막히는 화면)에서는
+       트리 양옆이 비므로 구석으로, 세로로 긴 화면에서는 트리 위아래가 비므로
+       가운데로 둔다. 경계는 트리 비율(100/130) 그대로다. */
+    .xm-treehead, .xm-treefoot {
+      position: fixed; z-index: 4;
+      text-shadow: 0 2px 10px rgba(5, 12, 22, .85);
+      pointer-events: none;
+    }
+    .xm-treehead { top: 20px; left: 0; right: 0; text-align: center }
+    .xm-treetitle { font-size: 26px; font-weight: 800; letter-spacing: -.6px; margin: 0 0 4px }
+    .xm-treesub   { color: var(--hi-text-muted); font-size: 14px; margin: 0 }
+    .xm-treefoot {
+      bottom: 20px; left: 0; right: 0; text-align: center;
+      color: var(--hi-text-muted); font-size: 15px; letter-spacing: -.2px;
+    }
+    .xm-treefoot b { color: var(--hi-accent); font-size: 21px; font-weight: 800 }
+
+    @media (min-aspect-ratio: 100/130) {
+      .xm-treehead  { top: 22px; left: 26px; right: auto; text-align: left }
+      .xm-treefoot { bottom: 24px; left: 26px; right: auto; text-align: left }
+    }
 
     /* 선생님 모드 알림 띠 */
     .xm-minebar {
       display: none;
-      align-items: center; justify-content: center; gap: 12px;
-      flex-wrap: wrap;
-      background: var(--hi-accent-soft);
+      position: fixed; z-index: 5; left: 50%; top: 14px; transform: translateX(-50%);
+      align-items: center; gap: 12px; flex-wrap: wrap;
+      background: rgba(10, 22, 34, .82);
       border: 1px solid var(--hi-border-faint);
-      border-radius: 999px;
-      padding: 10px 18px;
-      margin: 0 auto 12px;
+      border-radius: 999px; padding: 10px 18px;
       font-size: 14px; font-weight: 700; color: var(--hi-accent);
       max-width: max-content;
     }
     .xm-minebar.on { display: flex }
 
+    /* 구석 단추 */
     .xm-corner {
-      position: fixed; right: 16px; bottom: 16px; z-index: 5;
+      position: fixed; right: 16px; bottom: 16px; z-index: 6;
+      display: flex; gap: 8px; align-items: center;
       opacity: .45; transition: opacity .2s ease;
     }
     .xm-corner:hover, .xm-corner:focus-within { opacity: 1 }
 
-    /* 폰에서는 구석 버튼이 아래 문구를 덮는다 */
     @media (max-width: 600px) {
       .xm-corner { right: 10px; bottom: 10px }
-      .xm-treefoot { padding-bottom: 42px }
+      .xm-treetitle { font-size: 21px }
+      .xm-treefoot { bottom: 58px }
     }
 
     /* 트리가 아직 비었을 때 */
@@ -53,6 +90,44 @@
       text-align: center; font-size: 15px; color: var(--hi-text-muted);
       line-height: 1.8; pointer-events: none;
     }
+
+    /* ── 가까이 보기 ──────────────────────────────────────────────
+       카메라를 확대해 꼭대기부터 밑동까지 천천히 훑어 내렸다가 다시 올라온다.
+       transform은 오른쪽부터 먹으므로 scale(Z) translateY(p) 에서 실제로 움직이는
+       거리는 Z 곱하기 p 다. 그래서 끝까지 훑으려면 p = -(1 - 1/Z) 여야 한다.
+       이 값(--pan)은 스크립트가 셈해서 넣는다(calc 안에서 변수로 나누는 것은
+       브라우저마다 다르게 군다). */
+    .xm-cam.zoom {
+      animation: xm-pan var(--pan-sec, 34s) ease-in-out infinite alternate;
+    }
+    @keyframes xm-pan {
+      from { transform: scale(var(--zoom)) translateY(0) }
+      to   { transform: scale(var(--zoom)) translateY(var(--pan)) }
+    }
+    /* 학번과 이름. 평소에는 없고 가까이 보기에서만 뜬다.
+       글자 크기를 cqw(트리 폭의 %)로 두어야 화면이 커져도 오너먼트와 같은
+       비율을 지킨다. px로 두면 큰 TV에서 깨알같이 작아진다.
+
+       한꺼번에 다 띄우면 160장이 서로 겹쳐 글자 덩어리가 된다. 그래서
+       **카메라가 지금 보고 있는 띠에서만** 떠오르게 하고, 띠에서 멀어질수록
+       사그라든다. 밝기(--lab)는 스크립트가 매 프레임 넣는다. */
+    .xm-lab {
+      display: none;
+      position: absolute; left: 50%; top: 101%;
+      transform: translateX(-50%);
+      white-space: nowrap; text-align: center;
+      font-size: 1.15cqw; line-height: 1.25; font-weight: 700;
+      color: #fff;
+      opacity: calc(var(--lab, 0) * .82);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, .95), 0 0 10px rgba(0, 0, 0, .7);
+      pointer-events: none;
+    }
+    .xm-lab i { display: block; font-style: normal; opacity: .82; font-weight: 600 }
+    .xm-orns.labels .xm-lab { display: block }
+
+    @media (prefers-reduced-motion: reduce) {
+      .xm-cam.zoom { animation: none; transform: scale(var(--zoom)) translateY(calc(var(--pan) / 2)) }
+    }
   </style>
 </head>
 <body class="hi-preset-xmas xm-body">
@@ -60,35 +135,40 @@
   <div class="xm-stars"></div>
   <canvas class="xm-snow" id="snow"></canvas>
 
-  <main class="xm-stage xm-stage-wide">
-    <h1 class="xm-treetitle" id="title">감사편지 트리</h1>
-    <p class="xm-treesub" id="sub">마음을 적어 트리에 달아 주세요</p>
-
-    <div class="xm-minebar" id="minebar">
-      <span id="mineLabel"></span>
-      <button class="xm-btn xm-btn-ghost xm-btn-sm" id="mineOff" type="button">트리 전체 보기</button>
+  <main class="xm-treestage">
+    <div class="xm-cam" id="cam">
+      <div class="xm-treewrap" id="wrap">
+        <!-- 가지와 별은 tree-layout.js의 TIERS에서 그린다(자리 계산과 같은 파일이라 어긋나지 않는다) -->
+        <svg viewBox="0 0 100 130" preserveAspectRatio="xMidYMid meet" aria-label="크리스마스트리">
+          <!-- 바닥에 쌓인 눈. 가로로 꽉 찬 띠를 쓰면 트리 칸 가장자리에서 네모로 뚝 잘려
+               바닥이 아니라 상자처럼 보인다. 양끝이 자연히 사라지는 타원으로 둔다. -->
+          <ellipse cx="50" cy="128" rx="46" ry="7.5" fill="#dceaf7" opacity=".10"/>
+          <ellipse cx="50" cy="125" rx="30" ry="5" fill="#dceaf7" opacity=".07"/>
+          <!-- 기둥 -->
+          <rect x="45.5" y="112" width="9" height="13" rx="3" fill="#6b4a2e"/>
+          <rect x="45.5" y="112" width="3.2" height="13" rx="1.6" fill="#80593a"/>
+          <g id="treeArt"></g>
+        </svg>
+        <div class="xm-orns" id="orns"></div>
+        <div class="xm-treeempty" id="treeEmpty" hidden>아직 달린 편지가 없어요.<br>첫 번째 마음을 달아 주세요.</div>
+      </div>
     </div>
-
-    <div class="xm-treewrap" id="wrap">
-      <!-- 가지와 별은 tree-layout.js의 TIERS에서 그린다(자리 계산과 같은 파일이라 어긋나지 않는다) -->
-      <svg viewBox="0 0 100 130" preserveAspectRatio="xMidYMid meet" aria-label="크리스마스트리">
-        <!-- 바닥에 쌓인 눈. 가로로 꽉 찬 띠를 쓰면 트리 칸 가장자리에서 네모로 뚝 잘려
-             바닥이 아니라 상자처럼 보인다. 양끝이 자연히 사라지는 타원으로 둔다. -->
-        <ellipse cx="50" cy="128" rx="46" ry="7.5" fill="#dceaf7" opacity=".10"/>
-        <ellipse cx="50" cy="125" rx="30" ry="5" fill="#dceaf7" opacity=".07"/>
-        <!-- 기둥 -->
-        <rect x="45.5" y="112" width="9" height="13" rx="3" fill="#6b4a2e"/>
-        <rect x="45.5" y="112" width="3.2" height="13" rx="1.6" fill="#80593a"/>
-        <g id="treeArt"></g>
-      </svg>
-      <div class="xm-orns" id="orns"></div>
-      <div class="xm-treeempty" id="treeEmpty" hidden>아직 달린 편지가 없어요.<br>첫 번째 마음을 달아 주세요.</div>
-    </div>
-
-    <div class="xm-treefoot" id="foot">불러오는 중…</div>
   </main>
 
+  <header class="xm-treehead">
+    <h1 class="xm-treetitle" id="title">감사편지 트리</h1>
+    <p class="xm-treesub" id="sub">마음을 적어 트리에 달아 주세요</p>
+  </header>
+
+  <div class="xm-treefoot" id="foot"></div>
+
+  <div class="xm-minebar" id="minebar">
+    <span id="mineLabel"></span>
+    <button class="xm-btn xm-btn-ghost xm-btn-sm" id="mineOff" type="button">트리 전체 보기</button>
+  </div>
+
   <div class="xm-corner">
+    <button class="xm-btn xm-btn-ghost xm-btn-sm" id="viewBtn" type="button">가까이 보기</button>
     <a class="xm-btn xm-btn-ghost xm-btn-sm" href="teacher.html">선생님 전용</a>
   </div>
 
@@ -174,6 +254,106 @@ watchConfig(c => {
   document.title = c.title;
 });
 
+/* ── 보기 두 가지 ──────────────────────────────────────────────
+   전체 보기   트리 하나가 화면을 꽉 채운다. 멀리서 보는 전시용.
+   가까이 보기 카메라가 확대해 꼭대기부터 밑동까지 천천히 훑어 내렸다가
+              다시 올라온다. 이때만 오너먼트 밑에 학번과 이름이 뜬다.
+
+   주소에 ?view=zoom 을 붙이면 처음부터 가까이 보기로 열린다(TV에 그대로 띄우는 용).
+   구석 단추로도 오갈 수 있고, 고른 보기는 주소에 남아 새로고침해도 유지된다. */
+const ZOOM    = 2.0;    // 몇 배로 당길 것인가
+const PAN_SEC = 34;     // 꼭대기에서 밑동까지 한 번 훑는 데 걸리는 초
+const BAND    = 9;      // 이름이 뜨는 띠의 두께(트리 좌표, 위아래로 이만큼)
+const LAB_DX  = 7;      // 이름끼리 이만큼 안 떨어지면 뒤엣것을 숨긴다(가로)
+const LAB_DY  = 3.4;    //                                        (세로)
+const cam = $('#cam');
+
+function setView(mode) {
+  const zoom = mode === 'zoom';
+  cam.classList.toggle('zoom', zoom);
+  $('#orns').classList.toggle('labels', zoom);
+  $('#viewBtn').textContent = zoom ? '전체 보기' : '가까이 보기';
+  if (zoom) {
+    cam.style.setProperty('--zoom', ZOOM);
+    // scale이 나중에 먹으므로 실제 움직인 거리는 ZOOM배가 된다. 끝까지 훑으려면 이 값이어야 한다.
+    cam.style.setProperty('--pan', (-(1 - 1 / ZOOM) * 100).toFixed(3) + '%');
+    cam.style.setProperty('--pan-sec', PAN_SEC + 's');
+  } else {
+    cam.style.removeProperty('--zoom');
+    cam.style.removeProperty('--pan');
+  }
+  if (zoom) startFocus(); else stopFocus();
+  const u = new URL(location.href);
+  if (zoom) u.searchParams.set('view', 'zoom'); else u.searchParams.delete('view');
+  history.replaceState(null, '', u);
+}
+
+/* ── 카메라가 보고 있는 띠 ─────────────────────────────────────
+   애니메이션이 지금 어디쯤인지를 시간으로 되짚지 않고 **실제로 그려진 자리**에서
+   읽는다(getBoundingClientRect는 transform이 먹은 뒤의 값이다). 가속 곡선이나
+   브라우저 차이와 무관하게 늘 맞고, 사람이 보기 모드를 바꿔도 저절로 따라온다. */
+let camRaf = 0;
+let tickSkip = 0;
+
+function updateFocus() {
+  const r = $('#wrap').getBoundingClientRect();
+  if (!r.height) return;
+  const focusY = ((window.innerHeight / 2 - r.top) / r.height) * TREE.vbH;
+
+  // 1) 띠 안에 드는 것을 모은다. 띠 한가운데가 1, 가장자리가 0.
+  const lit = [];
+  const off = [];
+  for (const el of nodes.values()) {
+    const y = +el.dataset.y || 0;
+    const d = Math.abs(y - focusY);
+    if (d >= BAND) { off.push(el); continue; }
+    lit.push({ el, x: +el.dataset.x || 50, y, v: Math.round((1 - d / BAND) * 100) / 100 });
+  }
+
+  /* 2) 띠 안이라도 바짝 붙은 것끼리는 글자가 겹쳐 읽을 수 없다.
+        띠 한가운데에 가까운 것부터 자리를 잡고, 이미 잡힌 이름과 너무 가까우면
+        그 이름은 이번에는 쉰다(오너먼트 그림은 그대로 있다). */
+  const kept = [];
+  lit.sort((a, b) => b.v - a.v);
+  for (const c of lit) {
+    const clash = kept.some(k => Math.abs(k.x - c.x) < LAB_DX && Math.abs(k.y - c.y) < LAB_DY);
+    if (clash) { off.push(c.el); continue; }
+    kept.push(c);
+    set(c.el, c.v);
+  }
+  for (const el of off) set(el, 0);
+}
+
+/** 바뀐 것만 건드린다 — 매 프레임 160장에 스타일을 쓰면 괜히 버겁다 */
+function set(el, v) {
+  if (el.dataset.lit === String(v)) return;
+  el.dataset.lit = String(v);
+  el.style.setProperty('--lab', v);
+}
+
+function startFocus() {
+  if (camRaf) return;
+  const tick = () => {
+    camRaf = requestAnimationFrame(tick);
+    // 160장을 매 프레임 훑을 일은 없다. 세 프레임에 한 번이면 눈에 똑같다.
+    if (tickSkip++ % 3 === 0) updateFocus();
+  };
+  camRaf = requestAnimationFrame(tick);
+}
+
+function stopFocus() {
+  if (camRaf) cancelAnimationFrame(camRaf);
+  camRaf = 0;
+  for (const el of nodes.values()) {
+    el.dataset.lit = '';
+    el.style.removeProperty('--lab');
+  }
+}
+
+$('#viewBtn').addEventListener('click', () => {
+  setView(cam.classList.contains('zoom') ? 'full' : 'zoom');
+});
+
 /* ── 선생님 모드 ───────────────────────────────────────────────
    teacher.html에서 네 자리 번호를 확인한 뒤 같은 탭으로 넘어오면
    sessionStorage에 자기 편지 id 목록이 들어 있다. 트리는 그것만 빛나게 한다.
@@ -201,9 +381,15 @@ $('#mineOff').addEventListener('click', () => {
 });
 
 // ── 오너먼트 걸기 ─────────────────────────────────────────────
-let items = [];                 // [{id, ornament}] 걸린 순서
+let items = [];                 // [{id, ornament, x, y, studentId, studentName}] 걸린 순서
 const nodes = new Map();        // id → 화면 요소
 let firstPaint = true;
+
+/** 가까이 봤을 때 오너먼트 밑에 뜨는 두 줄. 학번과 이름이 없는 문서는 그냥 비운다. */
+function labelHTML(it) {
+  if (!it.studentId && !it.studentName) return '';
+  return `<span class="xm-lab">${esc(it.studentId || '')}<i>${esc(it.studentName || '')}</i></span>`;
+}
 
 function render(freshIds = new Set()) {
   const wrap = $('#orns');
@@ -219,9 +405,10 @@ function render(freshIds = new Set()) {
   for (const p of placed) {
     let el = nodes.get(p.id);
     if (!el) {
+      const it = byId.get(p.id);
       el = document.createElement('div');
       el.className = 'xm-hang';
-      el.innerHTML = `<span class="xm-sway">${ornamentSVG(byId.get(p.id).ornament, 64)}</span>`;
+      el.innerHTML = `<span class="xm-sway">${ornamentSVG(it.ornament, 64)}</span>${labelHTML(it)}`;
       // 같은 모양이라도 흔들리는 박자를 다르게 해야 한 몸처럼 움직이지 않는다
       el.querySelector('.xm-sway').style.animationDelay = `-${(Math.random() * 5).toFixed(2)}s`;
       if (!firstPaint && freshIds.has(p.id)) {
@@ -232,6 +419,9 @@ function render(freshIds = new Set()) {
       nodes.set(p.id, el);
     }
     el.classList.toggle('mine', !!(mineIds && mineIds.has(p.id)));
+    // 띠 안에 드는지, 이웃 이름과 겹치지 않는지 보려고 트리 좌표를 적어 둔다
+    el.dataset.x = p.x;
+    el.dataset.y = p.y;
     el.style.left  = p.x + '%';
     el.style.top   = (p.y / TREE.vbH * 100) + '%';
     el.style.width = p.w + '%';
@@ -244,6 +434,10 @@ function render(freshIds = new Set()) {
   firstPaint = false;
 }
 
+/* 처음 보기를 정한다. nodes와 render가 다 만들어진 뒤라야 한다 —
+   setView가 띠 따라가기를 켜고 끄면서 nodes를 건드린다. */
+setView(new URLSearchParams(location.search).get('view') === 'zoom' ? 'zoom' : 'full');
+
 /* 미리보기: ?demo=160 이면 Firebase를 보지 않고 가짜 트리를 그린다.
    축제 당일처럼 꽉 찬 트리를 실제 컬렉션을 더럽히지 않고 보려고 둔 길이다. */
 const DEMO = demoCount();
@@ -253,15 +447,19 @@ if (DEMO) {
   render();
 } else {
 
-/* 오너먼트 문서에는 모양과 시각뿐이다 — 누가 누구에게 썼는지는 들어 있지 않다.
-   트리를 아무리 들여다봐도 편지의 주인을 알 수 없는 까닭이다. */
+/* 오너먼트 문서에는 모양과 자리, 그리고 쓴 사람의 학번과 이름만 있다.
+   받는 선생님은 들어 있지 않다 — 그래서 트리를 들여다봐도 누가 누구에게
+   썼는지는 알 수 없다(그 둘을 잇는 것은 관리자만 읽는 편지 문서뿐이다). */
 onSnapshot(query(collection(db, C_ORNAMENTS), orderBy('createdAt')),
   snap => {
     const fresh = new Set();
     snap.docChanges().forEach(ch => { if (ch.type === 'added') fresh.add(ch.doc.id); });
     items = snap.docs.map(d => {
       const v = d.data();
-      return { id: d.id, ornament: v.ornament, x: v.x, y: v.y };
+      return {
+        id: d.id, ornament: v.ornament, x: v.x, y: v.y,
+        studentId: v.studentId, studentName: v.studentName,
+      };
     });
     render(fresh);
   },

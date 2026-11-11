@@ -53,8 +53,9 @@
     .xm-picktree {
       position: relative;
       aspect-ratio: 100 / 130;
-      /* 손가락으로 찍어야 하니 되도록 크게. 버튼 줄과 머리말 몫만 덜어 둔다. */
-      width: min(100%, 58vh * 100 / 130);
+      /* 손가락으로 찍어야 하니 되도록 크게. 버튼 줄과 머리말 몫만 덜어 둔다.
+         dvh로 둔다 — 폰은 주소창이 들락거려 vh로 두면 트리가 화면보다 커진다. */
+      width: min(100%, 58dvh * 100 / 130);
       margin: 0 auto;
       cursor: crosshair;
       touch-action: manipulation;   /* 두 번 눌러 확대되는 것 막기 */
@@ -82,6 +83,18 @@
       margin: 10px 0 0; min-height: 20px;
     }
     @media (prefers-reduced-motion: reduce) { .xm-ghost { animation: none } }
+
+    /* 폰으로 들어오는 학생도 있다. 이 칸은 단추를 한 줄로 두고 트리를 줄인다 —
+       세로로 쌓으면 단추 셋이 200px 가까이 먹어 [이전]이 화면 밖으로 밀렸다.
+       문구가 다 짧아서 한 줄에 들어간다. */
+    @media (max-width: 600px) {
+      .xm-picktree { width: min(100%, 44dvh * 100 / 130) }
+      .xm-pickpanel { padding: 14px 12px 16px }
+      .xm-pickpanel .xm-actions { flex-direction: row; flex-wrap: nowrap; gap: 8px }
+      .xm-pickpanel .xm-actions .xm-btn {
+        flex: 1 1 0; min-width: 0; padding-left: 10px; padding-right: 10px; font-size: 15px;
+      }
+    }
   </style>
 </head>
 <body class="hi-preset-xmas xm-body">
@@ -594,11 +607,17 @@ async function send() {
       y:           form.y,
       createdAt:   serverTimestamp(),
     });
+    /* 트리 화면이 읽는 문서. 전시 화면에서 가까이 당겨 봤을 때 누가 달았는지
+       보이도록 학번과 이름을 같이 적는다(2026-11-11).
+       받는 선생님은 여기 넣지 말 것 — 넣는 순간 통신만 들여다봐도
+       어느 오너먼트가 누구 앞으로 간 편지인지 드러난다. */
     batch.set(doc(db, C_ORNAMENTS, id), {
-      ornament:  form.ornament,
-      x:         form.x,
-      y:         form.y,
-      createdAt: serverTimestamp(),
+      ornament:    form.ornament,
+      studentId:   form.sid,
+      studentName: form.name,
+      x:           form.x,
+      y:           form.y,
+      createdAt:   serverTimestamp(),
     });
     await batch.commit();
 
