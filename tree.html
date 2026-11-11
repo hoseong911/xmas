@@ -139,6 +139,7 @@
 <body class="hi-preset-xmas xm-body">
   <div class="xm-sky"></div>
   <div class="xm-stars"></div>
+  <div class="xm-campus"></div>
   <canvas class="xm-snow" id="snow"></canvas>
 
   <main class="xm-treestage">
@@ -488,8 +489,11 @@ function render(freshIds = new Set()) {
       el = document.createElement('div');
       el.className = 'xm-hang';
       el.innerHTML = `<span class="xm-sway">${ornamentSVG(it.ornament, 64)}</span>${labelHTML(it)}`;
-      // 같은 모양이라도 흔들리는 박자를 다르게 해야 한 몸처럼 움직이지 않는다
-      el.querySelector('.xm-sway').style.animationDelay = `-${(Math.random() * 5).toFixed(2)}s`;
+      // 같은 모양이라도 박자와 폭이 달라야 한 몸처럼 움직이지 않는다
+      const sway = el.querySelector('.xm-sway');
+      sway.style.setProperty('--sway', (4.2 + Math.random() * 2.8).toFixed(2) + 's');
+      sway.style.setProperty('--tilt', (2.1 + Math.random() * 1.9).toFixed(2) + 'deg');
+      sway.style.animationDelay = `-${(Math.random() * 6).toFixed(2)}s`;
       if (!firstPaint && freshIds.has(p.id)) {
         el.classList.add('fresh');
         setTimeout(() => el.classList.remove('fresh'), 1400);
