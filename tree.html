@@ -109,26 +109,29 @@
       from { transform: scale(var(--zoom)) translateY(var(--pan0)) }
       to   { transform: scale(var(--zoom)) translateY(var(--pan1)) }
     }
-    /* 학번과 이름. 평소에는 없고 가까이 보기에서만 뜬다.
+    /* 학번과 이름. 평소에는 없고 가까이 보기에서만, 오너먼트 바로 위에 겹쳐 뜬다.
        글자 크기를 cqw(트리 폭의 %)로 두어야 화면이 커져도 오너먼트와 같은
        비율을 지킨다. px로 두면 큰 TV에서 깨알같이 작아진다.
 
        한꺼번에 다 띄우면 160장이 서로 겹쳐 글자 덩어리가 된다. 그래서
-       **카메라가 지금 보고 있는 띠에서만** 떠오르게 하고, 띠에서 멀어질수록
-       사그라든다. 밝기(--lab)는 스크립트가 매 프레임 넣는다. */
+       카메라가 지금 보고 있는 띠에서만 켜고, 켜고 끄는 것은 .on 한 가지로만 한다.
+       **밝기를 거리에 따라 매 프레임 조금씩 바꾸면 깜빡이는 것처럼 보인다** —
+       켜고 끄기만 하고 사이는 transition이 알아서 천천히 건너가게 둔다. */
     .xm-lab {
       display: none;
-      position: absolute; left: 50%; top: 101%;
-      transform: translateX(-50%);
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
       white-space: nowrap; text-align: center;
-      font-size: 1.15cqw; line-height: 1.25; font-weight: 700;
+      font-size: .95cqw; line-height: 1.2; font-weight: 700;
       color: #fff;
-      opacity: calc(var(--lab, 0) * .82);
-      text-shadow: 0 1px 4px rgba(0, 0, 0, .95), 0 0 10px rgba(0, 0, 0, .7);
+      opacity: 0;
+      transition: opacity 1.1s ease;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 0 8px rgba(0, 0, 0, .85);
       pointer-events: none;
     }
-    .xm-lab i { display: block; font-style: normal; opacity: .82; font-weight: 600 }
+    .xm-lab i { display: block; font-style: normal; opacity: .85; font-weight: 600 }
     .xm-orns.labels .xm-lab { display: block }
+    .xm-orns.labels .xm-hang.lab-on .xm-lab { opacity: .72 }
 
 
   </style>
@@ -268,9 +271,10 @@ const ZOOM    = 2.0;    // 적어도 이만큼은 당긴다
 const ZOOM_MAX = 3.2;   // 세로로 긴 화면에서도 이보다 더 당기지는 않는다
 const FILL    = 1.6;    // 당긴 트리가 화면 높이의 이 정도는 되어야 훑을 맛이 난다
 const PAN_SEC = 24;     // 꼭대기에서 밑동까지 한 번 훑는 데 걸리는 초
-const BAND    = 9;      // 이름이 뜨는 띠의 두께(트리 좌표, 위아래로 이만큼)
-const LAB_DX  = 7;      // 이름끼리 이만큼 안 떨어지면 뒤엣것을 숨긴다(가로)
-const LAB_DY  = 3.4;    //                                        (세로)
+const BAND_ON  = 7;     // 이름이 켜지는 띠의 두께(트리 좌표, 위아래로 이만큼)
+const BAND_OFF = 12;    // 꺼지는 선은 넉넉히 둔다 — 같으면 경계에서 깜빡인다
+const LAB_DX   = 4.6;   // 이름끼리 이만큼 안 떨어지면 뒤엣것은 쉰다(가로)
+const LAB_DY   = 2.6;   //                                        (세로)
 const cam = $('#cam');
 
 /* 배율과 훑을 구간을 화면에 맞춰 셈한다.
@@ -318,50 +322,51 @@ function setView(mode) {
    읽는다(getBoundingClientRect는 transform이 먹은 뒤의 값이다). 가속 곡선이나
    브라우저 차이와 무관하게 늘 맞고, 사람이 보기 모드를 바꿔도 저절로 따라온다. */
 let camRaf = 0;
-let tickSkip = 0;
+let lastFocus = 0;
 
 function updateFocus() {
   const r = $('#wrap').getBoundingClientRect();
   if (!r.height) return;
   const focusY = ((window.innerHeight / 2 - r.top) / r.height) * TREE.vbH;
 
-  // 1) 띠 안에 드는 것을 모은다. 띠 한가운데가 1, 가장자리가 0.
-  const lit = [];
+  /* 1) 켤 것을 고른다.
+        켜는 선(BAND_ON)보다 끄는 선(BAND_OFF)을 넉넉히 잡는다. 두 선이 같으면
+        카메라가 아주 천천히 움직이는 구간에서 경계에 걸친 이름이 켜졌다 꺼졌다
+        한다 — 눈에는 깜빡임으로 보인다. */
+  const want = [];
   const off = [];
   for (const el of nodes.values()) {
-    const y = +el.dataset.y || 0;
-    const d = Math.abs(y - focusY);
-    if (d >= BAND) { off.push(el); continue; }
-    lit.push({ el, x: +el.dataset.x || 50, y, v: Math.round((1 - d / BAND) * 100) / 100 });
+    const on = el.classList.contains('lab-on');
+    const d = Math.abs((+el.dataset.y || 0) - focusY);
+    if (d < (on ? BAND_OFF : BAND_ON)) {
+      want.push({ el, on, d, x: +el.dataset.x || 50, y: +el.dataset.y || 0 });
+    } else {
+      off.push(el);
+    }
   }
 
-  /* 2) 띠 안이라도 바짝 붙은 것끼리는 글자가 겹쳐 읽을 수 없다.
-        띠 한가운데에 가까운 것부터 자리를 잡고, 이미 잡힌 이름과 너무 가까우면
-        그 이름은 이번에는 쉰다(오너먼트 그림은 그대로 있다). */
+  /* 2) 바짝 붙은 것끼리는 글자가 겹쳐 읽을 수 없다. 자리는 하나만 내준다.
+        **이미 켜져 있는 것을 먼저 줄 세운다** — 매번 가까운 순으로 새로 뽑으면
+        카메라가 조금만 움직여도 주인이 바뀌어 서로 번갈아 깜빡인다. */
+  want.sort((a, b) => (b.on - a.on) || (a.d - b.d));
   const kept = [];
-  lit.sort((a, b) => b.v - a.v);
-  for (const c of lit) {
+  for (const c of want) {
     const clash = kept.some(k => Math.abs(k.x - c.x) < LAB_DX && Math.abs(k.y - c.y) < LAB_DY);
     if (clash) { off.push(c.el); continue; }
     kept.push(c);
-    set(c.el, c.v);
+    c.el.classList.add('lab-on');
   }
-  for (const el of off) set(el, 0);
-}
-
-/** 바뀐 것만 건드린다 — 매 프레임 160장에 스타일을 쓰면 괜히 버겁다 */
-function set(el, v) {
-  if (el.dataset.lit === String(v)) return;
-  el.dataset.lit = String(v);
-  el.style.setProperty('--lab', v);
+  for (const el of off) el.classList.remove('lab-on');
 }
 
 function startFocus() {
   if (camRaf) return;
-  const tick = () => {
+  const tick = now => {
     camRaf = requestAnimationFrame(tick);
-    // 160장을 매 프레임 훑을 일은 없다. 세 프레임에 한 번이면 눈에 똑같다.
-    if (tickSkip++ % 3 === 0) updateFocus();
+    // 0.3초에 한 번이면 넉넉하다. 자주 볼수록 경계에서 들썩이기만 한다.
+    if (now - lastFocus < 300) return;
+    lastFocus = now;
+    updateFocus();
   };
   camRaf = requestAnimationFrame(tick);
 }
@@ -369,10 +374,7 @@ function startFocus() {
 function stopFocus() {
   if (camRaf) cancelAnimationFrame(camRaf);
   camRaf = 0;
-  for (const el of nodes.values()) {
-    el.dataset.lit = '';
-    el.style.removeProperty('--lab');
-  }
+  for (const el of nodes.values()) el.classList.remove('lab-on');
 }
 
 $('#viewBtn').addEventListener('click', () => {
