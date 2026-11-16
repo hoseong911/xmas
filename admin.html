@@ -18,9 +18,11 @@
     #loginScreen.on { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px }
 
     /* 선생님 목록 */
+    /* 열 너비를 다 정해 둔다. 한 줄 한 줄이 따로 된 grid라서 마지막 칸을 auto로 두면
+       제목 줄(버튼이 없다)과 선생님 줄의 칸이 서로 어긋난다. */
     .t-row {
       display: grid;
-      grid-template-columns: 1fr 150px 92px 70px auto;
+      grid-template-columns: minmax(0, 1fr) 110px 76px 44px 290px;
       align-items: center;
       gap: 10px;
       padding: 11px 14px;
@@ -122,10 +124,71 @@
     .xl-state.warn { color: var(--hi-warning) }
     .xl-state.bad  { color: var(--hi-negative) }
     .xl-row.off { opacity: .55 }
+    /* ── 오밀조밀하게 (2026-11-16) ─────────────────────────────
+       shared/admin-base.css는 hoistory에서 복사해 온 사본이라 건드리지 않고 여기서 덮어쓴다.
+       원칙: **버튼은 혼자 한 줄을 차지하지 않는다.** 카드의 버튼은 제목 오른쪽(panel-header)에
+       두고, 작은 카드는 PC에서 둘씩 나란히 놓는다. */
+    .panel-header { flex-wrap: nowrap; align-items: flex-start; margin-bottom: 14px }
+    .panel-header > div:first-child { flex: 1; min-width: 0 }
+    .panel-header > .row-actions { flex: 0 1 auto; justify-content: flex-end; gap: 6px }
+    .panel-header.tight { margin-bottom: 0 }
+    .panel-sub .warn { color: var(--hi-negative); font-weight: 700 }
+    .title-count { font-family: 'Pretendard', sans-serif; font-size: 12px; font-weight: 700; color: var(--hi-text-muted); margin-left: 4px }
+    /* 빈 안내 칸이 자리를 먹어 카드 아래가 헐렁했다. 글이 있을 때만 자리를 차지한다. */
+    .setting-msg:empty { min-height: 0; margin: 0 }
+    .panel-header .setting-msg { margin-top: 6px }
+    .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px }
+    .panel-grid > .panel { margin-bottom: 0 }
+    .copy-area { min-height: 92px }
+    /* 선생님 추가: 이름 담당 / 번호 추가 를 두 줄로. 카드가 반쪽 폭이라 한 줄에 다 넣으면 칸이 너무 좁다. */
+    .tf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+    .tf-grid button { justify-self: start; align-self: center }
+    .set-grid { display: grid; grid-template-columns: 1.2fr 2fr .8fr .8fr; gap: 10px }
+    .setting-row input { min-width: 0 }
+    #resetWord { max-width: 300px }
+    .date-actions { align-items: center; flex-wrap: nowrap }
+    .date-actions .hi-input { width: 170px; padding-top: 8px; padding-bottom: 8px }
+    .t-acts { flex-wrap: nowrap }
+    .adm-filter { flex-wrap: nowrap; margin-bottom: 0 }
+    .adm-filter input { min-width: 0; flex: 1 }
+    .adm-filter select { min-width: 0 }
+    .adm-filter button { flex: 0 0 auto }
+
     @media (max-width: 760px) {
-      .t-row { grid-template-columns: 1fr auto; row-gap: 6px }
-      .t-row > .t-sub, .t-row > .t-count { grid-column: 1 }
+      .panel-grid { grid-template-columns: 1fr; gap: 0; margin-bottom: 0 }
+      .panel-grid > .panel { margin-bottom: 14px }
+      .set-grid { grid-template-columns: 1fr 1fr }
+      .set-grid > div:nth-child(-n+2) { grid-column: 1 / -1 }
+      /* 선생님 한 분을 두 줄로: 이름 담당 번호 편지 / 버튼들 */
+      .t-row {
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-areas: "name sub pin count" "acts acts acts acts";
+        row-gap: 8px; padding: 11px 4px;
+      }
+      .t-name { grid-area: name; white-space: nowrap }
+      .t-sub { grid-area: sub; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+      .t-pin { grid-area: pin }
+      .t-count { grid-area: count }
+      .t-count::after { content: '통' }
+      .t-acts { grid-area: acts; justify-content: flex-start }
       .t-head { display: none }
+    }
+
+    @media (max-width: 600px) {
+      /* 머리줄: 로고와 로그아웃이 윗줄, 탭이 아랫줄. 한 줄에 두면 화면 밖으로 넘친다. */
+      .adm-header {
+        grid-template-columns: 1fr auto; height: auto;
+        padding: 8px 14px; row-gap: 8px;
+      }
+      .adm-logo { grid-column: 1; grid-row: 1 }
+      .adm-logout { grid-column: 2; grid-row: 1 }
+      .adm-tabs { grid-column: 1 / -1; grid-row: 2; justify-self: stretch }
+      .adm-tab { flex: 1; padding: 6px 0 }
+      /* 버튼이 많으면 제목 옆 칸이 너무 넓어진다. 오른쪽 칸 안에서 줄을 바꾼다. */
+      .panel-header > .row-actions { max-width: 56% }
+      .adm-filter select { width: 92px }
+      .date-actions { flex-direction: column; align-items: flex-end }
+      .date-actions .hi-input { width: 150px }
     }
   </style>
 </head>
@@ -165,34 +228,36 @@
 
       <!-- ─── TEACHER ─────────────────────────────────── -->
       <section class="tab-panel active" id="tab-teacher">
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-title">선생님 추가</div>
-              <div class="panel-sub">네 자리 번호를 비워 두면 겹치지 않는 번호를 저절로 만들어 드려요.</div>
+        <div class="panel-grid">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">선생님 추가</div>
+                <div class="panel-sub">번호를 비워 두면 겹치지 않는 번호를 저절로 만들어 드려요.</div>
+              </div>
             </div>
+            <div class="tf-grid">
+              <input class="hi-input" id="tfName" type="text" placeholder="이름" maxlength="20">
+              <input class="hi-input" id="tfSub" type="text" placeholder="담당 (예: 국어)" maxlength="20">
+              <input class="hi-input" id="tfPin" type="text" inputmode="numeric" maxlength="4" placeholder="번호">
+              <button class="mini-btn primary" id="tfAdd" type="button">추가</button>
+            </div>
+            <div class="setting-msg" id="tfMsg"></div>
           </div>
-          <div class="setting-row">
-            <input class="hi-input" id="tfName" type="text" placeholder="이름" maxlength="20">
-            <input class="hi-input" id="tfSub" type="text" placeholder="담당 (예: 국어)" maxlength="20">
-            <input class="hi-input" id="tfPin" type="text" inputmode="numeric" maxlength="4" placeholder="번호" style="max-width:110px;min-width:90px">
-            <button class="mini-btn primary" id="tfAdd" type="button">추가</button>
-          </div>
-          <div class="setting-msg" id="tfMsg"></div>
-        </div>
 
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-title">여러 명 한 번에 넣기</div>
-              <div class="panel-sub">한 줄에 한 분씩 적어 주세요. 이름 뒤에 쉼표를 찍고 담당을 적으면 같이 들어갑니다.</div>
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">여러 명 한 번에 넣기</div>
+                <div class="panel-sub">한 줄에 한 분씩. 쉼표 뒤에 담당을 적으면 같이 들어갑니다.</div>
+              </div>
+              <div class="row-actions">
+                <button class="mini-btn primary" id="bulkAdd" type="button">한꺼번에 추가</button>
+              </div>
             </div>
+            <textarea class="hi-textarea copy-area" id="bulkBox" placeholder="김호성, 역사&#10;이영희, 수학&#10;박철수"></textarea>
+            <div class="setting-msg" id="bulkMsg"></div>
           </div>
-          <textarea class="hi-textarea copy-area" id="bulkBox" placeholder="김호성, 역사&#10;이영희, 수학&#10;박철수"></textarea>
-          <div class="row-actions" style="margin-top:10px">
-            <button class="mini-btn primary" id="bulkAdd" type="button">한꺼번에 추가</button>
-          </div>
-          <div class="setting-msg" id="bulkMsg"></div>
         </div>
 
         <div class="panel">
@@ -234,16 +299,13 @@
         <div class="panel">
           <div class="panel-header">
             <div>
-              <div class="panel-title">선생님 목록</div>
-              <div class="panel-sub" id="tListSub"></div>
+              <div class="panel-title">선생님 목록 <span class="title-count" id="tListSub"></span></div>
+              <div class="panel-sub">번호는 선생님 본인에게만 알려 주세요. 번호를 알면 그 선생님께 온 편지를 모두 읽을 수 있습니다.</div>
             </div>
             <div class="row-actions">
               <button class="mini-btn" id="pinShow" type="button">번호 보기</button>
               <button class="mini-btn" id="pinCopy" type="button">번호 목록 복사</button>
             </div>
-          </div>
-          <div class="pin-note" style="margin-bottom:12px">
-            번호는 선생님 본인에게만 알려 주세요. 번호를 아는 사람은 그 선생님께 온 편지를 모두 읽을 수 있습니다.
           </div>
           <div id="tList"></div>
         </div>
@@ -273,64 +335,78 @@
 
       <!-- ─── SETTING ─────────────────────────────────── -->
       <section class="tab-panel" id="tab-setting">
-        <div class="panel">
-          <div class="panel-header"><div class="panel-title">화면 바로가기</div></div>
-          <p>태블릿에는 학생 화면을, 큰 화면에는 트리를 띄워 두세요.</p>
-          <div class="link-row">
-            <a class="mini-btn" id="linkStudent" href="index.html" target="_blank" rel="noopener">학생 화면</a>
-            <a class="mini-btn" id="linkTree" href="tree.html" target="_blank" rel="noopener">트리 화면</a>
-            <a class="mini-btn" id="linkTeacher" href="teacher.html" target="_blank" rel="noopener">선생님 화면</a>
+        <div class="panel-grid">
+          <div class="panel">
+            <div class="panel-header tight">
+              <div>
+                <div class="panel-title">편지 받기</div>
+                <div class="panel-sub">멈추면 태블릿이 바로 닫히고 쓰던 내용도 지워집니다.</div>
+                <div class="setting-msg" id="openMsg"></div>
+              </div>
+              <div class="row-actions">
+                <button class="mini-btn" id="openBtn" type="button">받는 중</button>
+                <button class="mini-btn" id="closeBtn" type="button">멈춤</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header tight">
+              <div>
+                <div class="panel-title">화면 바로가기</div>
+                <div class="panel-sub">태블릿에는 학생 화면을, 큰 화면에는 트리를 띄워 두세요.</div>
+              </div>
+              <div class="row-actions">
+                <a class="mini-btn" id="linkStudent" href="index.html" target="_blank" rel="noopener">학생 화면</a>
+                <a class="mini-btn" id="linkTree" href="tree.html" target="_blank" rel="noopener">트리 화면</a>
+                <a class="mini-btn" id="linkTeacher" href="teacher.html" target="_blank" rel="noopener">선생님 화면</a>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="panel">
-          <div class="panel-header"><div class="panel-title">편지 받기</div></div>
-          <p>멈추면 태블릿이 바로 닫히고 쓰던 내용도 지워집니다.</p>
-          <div class="row-actions">
-            <button class="mini-btn" id="openBtn" type="button">받는 중</button>
-            <button class="mini-btn" id="closeBtn" type="button">멈춤</button>
+          <div class="panel-header tight">
+            <div>
+              <div class="panel-title">편지 공개일</div>
+              <div class="panel-sub">선생님이 편지 내용을 읽는 것만 이 날부터 열립니다(한국 시간 0시). 오너먼트는 쓰는 즉시 달립니다. 비우면 바로 읽습니다.</div>
+            </div>
+            <div class="row-actions date-actions">
+              <input class="hi-input" id="setOpenAt" type="date">
+              <button class="mini-btn" id="clearOpenAt" type="button">날짜 비우기</button>
+            </div>
           </div>
-          <div class="setting-msg" id="openMsg"></div>
         </div>
 
         <div class="panel">
           <div class="panel-header">
             <div>
-              <div class="panel-title">편지 공개일</div>
-              <div class="panel-sub">오너먼트는 쓰는 즉시 트리에 달립니다. 선생님이 편지 내용을 읽는 것만 이 날짜부터 열립니다(한국 시간 0시 기준). 비워 두면 바로 읽을 수 있습니다.</div>
+              <div class="panel-title">화면 문구와 글자 수</div>
+              <div class="panel-sub">글자 수 조건은 학생 화면에 문구로 안내하지 않고 버튼이 켜지는 것으로만 알려 줍니다.</div>
+              <div class="setting-msg" id="setMsg"></div>
+            </div>
+            <div class="row-actions">
+              <button class="mini-btn primary" id="setSave" type="button">저장하기</button>
             </div>
           </div>
-          <div class="setting-row">
-            <input class="hi-input" id="setOpenAt" type="date" style="max-width:220px">
-            <button class="mini-btn" id="clearOpenAt" type="button">날짜 비우기</button>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header"><div class="panel-title">화면 문구와 글자 수</div></div>
-          <div class="field-group">
-            <label class="form-label" for="setTitle">제목</label>
-            <input class="hi-input" id="setTitle" type="text" maxlength="30">
-          </div>
-          <div class="field-group">
-            <label class="form-label" for="setSub">안내 문구</label>
-            <input class="hi-input" id="setSub" type="text" maxlength="40">
-          </div>
-          <div class="setting-row">
-            <div style="flex:1">
-              <label class="form-label" for="setMin">편지 최소 글자 수</label>
+          <div class="set-grid">
+            <div>
+              <label class="form-label" for="setTitle">제목</label>
+              <input class="hi-input" id="setTitle" type="text" maxlength="30">
+            </div>
+            <div>
+              <label class="form-label" for="setSub">안내 문구</label>
+              <input class="hi-input" id="setSub" type="text" maxlength="40">
+            </div>
+            <div>
+              <label class="form-label" for="setMin">최소 글자 수</label>
               <input class="hi-input" id="setMin" type="number" min="1" max="200">
             </div>
-            <div style="flex:1">
-              <label class="form-label" for="setMax">편지 최대 글자 수</label>
+            <div>
+              <label class="form-label" for="setMax">최대 글자 수</label>
               <input class="hi-input" id="setMax" type="number" min="50" max="2000">
             </div>
           </div>
-          <div class="pin-note" style="margin-top:8px">글자 수 조건은 학생 화면에 문구로 안내하지 않고 버튼이 켜지는 것으로만 알려 줍니다.</div>
-          <div class="row-actions" style="margin-top:14px">
-            <button class="mini-btn primary" id="setSave" type="button">저장하기</button>
-          </div>
-          <div class="setting-msg" id="setMsg"></div>
         </div>
 
         <div class="panel">
@@ -338,17 +414,16 @@
             <div>
               <div class="panel-title">편지 초기화</div>
               <div class="panel-sub">
-                지금까지 받은 편지와 트리에 달린 오너먼트를 모두 지웁니다. 숨긴 편지도 같이 지워집니다.
-                선생님 명단과 번호, 위의 설정은 그대로 남습니다.
+                받은 편지와 트리의 오너먼트를 모두 지웁니다(숨긴 편지 포함). 선생님 명단과 번호, 설정은 남습니다.
+                <b class="warn">지운 편지는 되살릴 수 없으니 먼저 엑셀로 받아 두세요.</b>
               </div>
             </div>
+            <div class="row-actions">
+              <button class="mini-btn" id="resetBackup" type="button">편지 엑셀로 받기</button>
+            </div>
           </div>
-          <div class="pin-note">지운 편지는 되살릴 수 없습니다. 먼저 엑셀로 받아 두세요.</div>
-          <div class="row-actions" style="margin-top:12px">
-            <button class="mini-btn" id="resetBackup" type="button">편지 엑셀로 받기</button>
-          </div>
-          <div class="setting-row" style="margin-top:14px">
-            <input class="hi-input" id="resetWord" type="text" placeholder="초기화 라고 적어 주세요" autocomplete="off" style="max-width:240px">
+          <div class="setting-row">
+            <input class="hi-input" id="resetWord" type="text" placeholder="초기화 라고 적어 주세요" autocomplete="off">
             <button class="mini-btn danger" id="resetBtn" type="button" disabled>모두 지우기</button>
           </div>
           <div class="setting-msg" id="resetMsg"></div>
@@ -773,7 +848,7 @@ function letterCount(tid) {
 }
 
 function renderTeachers() {
-  $('#tListSub').textContent = teachers.length ? `모두 ${teachers.length}분` : '';
+  $('#tListSub').textContent = teachers.length ? `${teachers.length}분` : '';
   $('#pinShow').textContent = pinVisible ? '번호 가리기' : '번호 보기';
   if (!teachers.length) {
     $('#tList').innerHTML = '<p style="text-align:center;padding:24px 0">아직 등록된 선생님이 없습니다.</p>';
