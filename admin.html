@@ -68,8 +68,17 @@
     .l-acts { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap }
     .l-flag { font-size: 12px; font-weight: 800; color: var(--hi-negative) }
 
+    /* 선생님별로 보기. 검색 칸 옆에 끼워 두니 눈에 안 띄어 따로 한 줄로 크게 뺐다. */
+    .l-pick { display: flex; flex-direction: column; gap: 6px }
+    .l-pick .hi-select { width: 100%; max-width: 420px; font-size: 15px; font-weight: 700 }
+    .l-pick-sum {
+      margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--hi-accent);
+    }
+    .l-pick-sum span { color: var(--hi-text-muted); font-weight: 500 }
+
     .adm-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px }
     .adm-filter select, .adm-filter input { min-width: 150px }
+    .adm-filter select { width: auto; flex: 0 0 auto }
     .pin-note { font-size: 12px; color: var(--hi-text-muted); line-height: 1.7 }
     .copy-area {
       width: 100%; box-sizing: border-box; min-height: 120px;
@@ -243,9 +252,13 @@
       <!-- ─── LETTER ──────────────────────────────────── -->
       <section class="tab-panel" id="tab-letter">
         <div class="panel">
-          <div class="stats-row" id="lStats"></div>
-          <div class="adm-filter" style="margin-top:14px">
+          <div class="l-pick">
+            <label class="form-label" for="lTeacher">선생님별로 보기</label>
             <select class="hi-select" id="lTeacher"><option value="">선생님 전체</option></select>
+          </div>
+          <div class="l-pick-sum" id="lPickSum" hidden></div>
+          <div class="stats-row" id="lStats" style="margin-top:14px"></div>
+          <div class="adm-filter" style="margin-top:14px">
             <select class="hi-select" id="lState">
               <option value="all">전체</option>
               <option value="shown">트리에 달린 것</option>
@@ -888,12 +901,43 @@ async function loadLetters() {
   renderTeachers();   // 선생님별 편지 수를 채운다
 }
 
+/* ── 선생님별로 보기 ──────────────────────────────────────────
+   이름 옆에 받은 편지 수를 붙인다. 고르기 전에 누구에게 얼마나 왔는지 보이게.
+   명단에서 지웠거나 엑셀로 다시 올려 id가 바뀐 선생님 앞으로 온 편지도 있을 수 있다.
+   그런 편지는 편지에 적힌 이름(teacherName)으로 묶어 "명단에 없음"으로 따로 보여 준다.
+   안 그러면 어느 선생님을 골라도 안 나와 편지가 사라진 것처럼 보인다.
+   값: 명단의 선생님은 그 id, 명단에 없는 분은 'name:' + 이름 */
+function teacherOptions() {
+  const known = new Set(teachers.map(t => t.id));
+  const opts = teachers.map(t => ({
+    value: t.id, label: `${t.name} 선생님`, n: letters.filter(l => l.teacherId === t.id).length,
+  }));
+  const orphan = new Map();
+  letters.forEach(l => {
+    if (known.has(l.teacherId)) return;
+    const name = l.teacherName || '이름 없음';
+    orphan.set(name, (orphan.get(name) || 0) + 1);
+  });
+  orphan.forEach((n, name) => opts.push({ value: 'name:' + name, label: `${name} 선생님 (명단에 없음)`, n }));
+  return opts;
+}
+
 function fillTeacherFilter() {
   const sel = $('#lTeacher');
   const keep = sel.value;
-  sel.innerHTML = '<option value="">선생님 전체</option>' +
-    teachers.map(t => `<option value="${esc(t.id)}">${esc(t.name)} 선생님</option>`).join('');
-  sel.value = keep;
+  const opts = teacherOptions();
+  sel.innerHTML = `<option value="">선생님 전체 (${letters.length}통)</option>` +
+    opts.map(o => `<option value="${esc(o.value)}">${esc(o.label)} ${o.n}통</option>`).join('');
+  sel.value = opts.some(o => o.value === keep) ? keep : '';
+}
+
+/** 고른 선생님 앞으로 온 편지인가 */
+function forPicked(l, pick) {
+  if (!pick) return true;
+  if (pick.startsWith('name:')) {
+    return !teachers.some(t => t.id === l.teacherId) && (l.teacherName || '이름 없음') === pick.slice(5);
+  }
+  return l.teacherId === pick;
 }
 
 function filteredLetters() {
@@ -901,7 +945,7 @@ function filteredLetters() {
   const state = $('#lState').value;
   const q = $('#lQuery').value.trim();
   return letters.filter(l => {
-    if (tid && l.teacherId !== tid) return false;
+    if (!forPicked(l, tid)) return false;
     if (state === 'shown' && l.hidden) return false;
     if (state === 'hidden' && !l.hidden) return false;
     if (q && !(l.studentName.includes(q) || l.studentId.includes(q) ||
@@ -911,6 +955,23 @@ function filteredLetters() {
 }
 
 function renderLetters() {
+  fillTeacherFilter();   // 편지 수가 바뀌었을 수 있다(숨기기, 삭제, 새로고침)
+  const pick = $('#lTeacher').value;
+  const sum = $('#lPickSum');
+  if (pick) {
+    const mine = letters.filter(l => forPicked(l, pick));
+    const hid = mine.filter(l => l.hidden).length;
+    const orphan = pick.startsWith('name:');
+    const label = orphan ? `${pick.slice(5)} 선생님`
+      : `${(teachers.find(t => t.id === pick) || {}).name || ''} 선생님`;
+    sum.innerHTML = `${esc(label)}께 온 편지 ${mine.length}통`
+      + (hid ? ` <span>(트리에 달린 것 ${mine.length - hid}통, 숨긴 것 ${hid}통)</span>` : '')
+      + (orphan ? ' <span>지금 선생님 명단에는 없는 분입니다.</span>' : '');
+    sum.hidden = false;
+  } else {
+    sum.hidden = true;
+  }
+
   const shown = letters.filter(l => !l.hidden).length;
   $('#lStats').innerHTML = `
     <div class="stat-chip"><span class="stat-chip-label">전체</span><span class="stat-chip-val">${letters.length}통</span></div>
@@ -943,6 +1004,8 @@ function renderLetters() {
 
 ['#lTeacher', '#lState', '#lQuery'].forEach(s =>
   $(s).addEventListener('input', renderLetters));
+// 선생님을 바꾸면 목록 맨 위부터 보이게
+$('#lTeacher').addEventListener('change', () => window.scrollTo({ top: 0 }));
 $('#lReload').addEventListener('click', loadLetters);
 
 $('#lList').addEventListener('click', async e => {
