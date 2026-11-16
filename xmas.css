@@ -255,9 +255,10 @@
 .xm-tsearch { margin-bottom: 14px }
 .xm-tgrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  /* 태블릿과 폰으로 고르므로 2단으로 두고 세로로 길게 훑게 한다 */
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  max-height: 46vh;
+  max-height: 58dvh;
   overflow-y: auto;
   padding: 2px;
 }
@@ -514,7 +515,10 @@
   .xm-sub { font-size: 14px; margin-bottom: 20px }
   .xm-panel { padding: 20px 16px; border-radius: 18px }
   .xm-ogrid { grid-template-columns: repeat(4, 1fr) }
-  .xm-tgrid { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); max-height: 42vh }
+  /* 2단이라 칸이 좁다. 여백을 줄여 "황미희 선생님"이 두 줄로 꺾이지 않게 둔다 */
+  .xm-tgrid { gap: 8px; max-height: 56dvh }
+  .xm-tcard { padding: 12px 12px; min-height: 64px }
+  .xm-tcard b { font-size: 16px }
   .xm-actions { flex-direction: column-reverse }
   .xm-actions .xm-btn { max-width: none }
   .xm-paper { padding: 18px 16px 14px }

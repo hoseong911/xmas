@@ -2,6 +2,7 @@
 //   실행: node --test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   TREE, slotCapacity, rowsFor, slotIndex, slotPitch, halfWidthAt, hash01, layout,
   ORN_W, ornHeight, onTree, clampSpot, nudgeFree, autoSpot, placeAll
@@ -255,4 +256,17 @@ test('nudgeFree: 찍은 자리에서 멀리 날아가지 않는다', () => {
     assert.ok(moved <= ORN_W * 1.5,
       `(${px},${py}) 에서 ${moved.toFixed(1)} 만큼 밀렸다 (오너먼트 너비 ${ORN_W})`);
   }
+});
+
+/* 학번 규칙(SID_RE)은 index.html 안에 있다 — xmas-core.js로 빼면 테스트가 파이어베이스
+   SDK를 CDN에서 끌어오려 한다. 그래서 소스에서 정규식만 꺼내 와 확인한다. */
+test('학번: 학년 1~3, 반 01~06, 번호 01~30만 통과한다', () => {
+  const src = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const m = src.match(/const SID_RE = (\/\S+\/);/);
+  assert.ok(m, 'index.html에서 SID_RE를 못 찾았다');
+  const re = new RegExp(m[1].slice(1, -1));
+  for (const ok of ['10101', '30101', '30630', '20306', '10130'])
+    assert.ok(re.test(ok), `${ok}은 통과해야 한다`);
+  for (const no of ['40101', '00101', '30701', '30001', '30131', '30100', '3010', '301011', ''])
+    assert.ok(!re.test(no), `${no}은 막아야 한다`);
 });
