@@ -101,7 +101,7 @@ test('layout: 같은 편지는 늘 같은 자리에 걸린다', () => {
 });
 
 // ── 트리 그림과 오너먼트 자리가 어긋나지 않는지 ─────────────────
-import { TIERS, tierPath, tierHalfAt, starPath } from '../tree-layout.js';
+import { TIERS, tierPath, tierHalfAt, starPath, treeArtSVG } from '../tree-layout.js';
 
 test('TIERS: 위에서 아래로 넓어지고 겹쳐 있다', () => {
   for (let i = 1; i < TIERS.length; i++) {
@@ -123,6 +123,15 @@ test('tierPath: 쓸 수 있는 path가 나온다', () => {
     // 물결 개수만큼 호가 들어 있다
     assert.equal((d.match(/a[\d.]+ /g) || []).length, t.scallops);
   }
+});
+
+test('treeArtSVG: 그림자는 아래 단에만 오려 붙이고, 전구 줄은 끌 수 있다', () => {
+  const svg = treeArtSVG();
+  assert.ok(!/NaN|undefined/.test(svg));
+  // 맨 아래 단은 드리울 데가 없으니 그림자 오리기는 단 수보다 하나 적다
+  assert.equal((svg.match(/<clipPath /g) || []).length, TIERS.length - 1);
+  assert.ok(/class="xt-l0"/.test(svg));
+  assert.ok(!/xtBulb/.test(treeArtSVG({ lights: false })));
 });
 
 test('starPath: 꼭지 다섯 개짜리 닫힌 길이 나온다', () => {

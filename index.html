@@ -253,7 +253,7 @@ import { collection, doc, getDocs, query, orderBy, writeBatch, serverTimestamp }
 import { db, C_LETTERS, C_ORNAMENTS, C_TEACHERS, watchConfig, esc, studentIdLabel, mountSnow }
   from "./xmas-core.js";
 import { ORNAMENTS, ornamentSVG } from "./ornaments.js";
-import { TREE, TIERS, tierPath, starPath, placeAll, clampSpot, nudgeFree, autoSpot, ORN_W, ornHeight }
+import { TREE, starPath, treeArtSVG,placeAll, clampSpot, nudgeFree, autoSpot, ORN_W, ornHeight }
   from "./tree-layout.js";
 import { icon } from "./shared/icons.js";
 import { containsBadWord } from "./shared/profanity.js";
@@ -487,11 +487,8 @@ function drawPickTree() {
     for (const k in attrs) el.setAttribute(k, attrs[k]);
     art.appendChild(el);
   };
-  for (let i = TIERS.length - 1; i >= 0; i--) {
-    const t = TIERS[i];
-    add('path', { d: tierPath(t, 2.2), fill: t.shade });
-    add('path', { d: tierPath(t), fill: t.fill });
-  }
+  // 전시 트리와 같은 그림이어야 고른 자리가 전시 화면에서도 같은 데로 보인다
+  art.insertAdjacentHTML('beforeend', treeArtSVG());
   add('path', { d: starPath(50, 11, 8.4, 3.5), fill: '#f7d479' });
 }
 

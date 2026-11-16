@@ -108,18 +108,30 @@ export function layout(ids) {
    오너먼트가 가지 밖 허공에 뜬다. 한 파일에 있으면 어긋날 수가 없다.
    ════════════════════════════════════════════════════════════════ */
 
-/** 가지 네 단. 위에서 아래로 넓어지고 짙어진다. */
+/** 가지 네 단. 위에서 아래로 넓어지고 짙어진다. top/bottom은 한 단 안의 위아래 색이다. */
 export const TIERS = [
-  { apexY: 14, baseY: 44,  half: 15, scallops: 3, fill: '#74DCCB', shade: '#4FB5AC' },
-  { apexY: 26, baseY: 70,  half: 24, scallops: 4, fill: '#5CCBBF', shade: '#3C9F9A' },
-  { apexY: 46, baseY: 96,  half: 32, scallops: 5, fill: '#46B1AC', shade: '#2F8A89' },
-  { apexY: 66, baseY: 118, half: 40, scallops: 6, fill: '#339695', shade: '#226F72' },
+  { apexY: 14, baseY: 44,  half: 15, scallops: 3, top: '#8FE6D6', bottom: '#5CC6B8' },
+  { apexY: 26, baseY: 70,  half: 24, scallops: 4, top: '#72D4C4', bottom: '#43ABA3' },
+  { apexY: 46, baseY: 96,  half: 32, scallops: 5, top: '#57BDB2', bottom: '#33918F' },
+  { apexY: 66, baseY: 118, half: 40, scallops: 6, top: '#3FA29F', bottom: '#246F72' },
 ];
+
+/* 가지 모양을 정하는 값 (2026-11-16에 다시 다듬었다).
+   예전에는 옆선을 크게 부풀리고 물결을 반원으로 깊게 팠더니, 단마다 물방울이나
+   젤리처럼 보였고 맨 위 단은 양파 모양이 됐다. 밑단은 치마 프릴 같았다.
+   - BULGE: 옆선이 직선에서 바깥으로 나오는 거리. 아주 조금만 둔다. 0이면 각이 서서
+     종이 공작 같고, 크게 두면 다시 젤리가 된다.
+   - FLAT:  물결의 세로/가로 비율. 1이면 반원이다. 얕은 타원이라야 가지 끝으로 읽힌다. */
+export const BULGE = 1.6;
+export const FLAT = 0.55;
+
+/** 단마다 전구 줄이 걸리는 높이: [왼쪽 끝 y, 오른쪽 끝 y, 처지는 정도] */
+const SWAGS = [[30, 38, 3], [52, 62, 4], [74, 86, 5], [97, 108, 6]];
 
 /**
  * 가지 한 단의 윤곽선.
- * 꼭대기에서 왼쪽 아래로 살짝 불룩하게 내려와, 밑단을 반원 여러 개로 물결치며
- * 오른쪽 끝까지 간 뒤, 다시 불룩하게 꼭대기로 돌아온다.
+ * 꼭대기에서 왼쪽 아래로 거의 곧게 내려와, 밑단을 얕은 타원 여러 개로 물결치며
+ * 오른쪽 끝까지 간 뒤, 다시 꼭대기로 돌아온다.
  * @param {object} t TIERS의 한 칸
  * @param {number} dy 아래로 밀 거리(그림자 사본을 만들 때 쓴다)
  */
@@ -128,24 +140,96 @@ export function tierPath(t, dy = 0) {
   const topY = t.apexY + dy;
   const botY = t.baseY + dy;
   const h = botY - topY;
-  const r = t.half / t.scallops;        // 물결 하나의 반지름
-  /* 옆선을 바깥으로 불룩하게 만드는 제어점. 직선으로 두면 각이 서서
-     종이로 오린 삼각형처럼 보인다.
-     주의: 제어점을 꼭대기와 밑끝을 잇는 직선 **위**에 두면 아무 일도 안 일어난다.
-     0.60/0.58 로 뒀을 때가 꼭 그랬다(가로 비율보다 세로 비율이 커야 바깥으로 밀린다).
-     지금은 같은 높이에서 직선보다 늘 바깥에 있도록 가로를 크게 잡았다. */
-  const cxOff = t.half * 0.96;
-  const cyOff = h * 0.70;
+  const rx = t.half / t.scallops;       // 물결 하나의 가로 반지름
+  const ry = rx * FLAT;
+  /* 옆선의 제어점은 꼭대기와 밑끝을 잇는 직선의 한가운데에서 **바깥쪽 법선 방향으로**
+     BULGE만큼 민 자리다. 직선 위에 두면 아무 일도 안 일어나고(예전에 0.60/0.58이 그랬다),
+     법선 방향으로 밀어야 단의 크기와 상관없이 같은 정도로 부푼다. */
+  const len = Math.hypot(t.half, h);
+  const ox = (h / len) * BULGE;
+  const oy = (t.half / len) * BULGE;
+  const qy = (topY + h / 2 - oy).toFixed(2);
+  const qlx = (cx - t.half / 2 - ox).toFixed(2);
+  const qrx = (cx + t.half / 2 + ox).toFixed(2);
 
   let d = `M${cx} ${topY}`;
-  d += `Q${(cx - cxOff).toFixed(2)} ${(topY + cyOff).toFixed(2)} ${(cx - t.half).toFixed(2)} ${botY.toFixed(2)}`;
-  // sweep-flag 0 이라야 아래로 볼록한 반원이 된다(1이면 위로 파인다).
+  d += `Q${qlx} ${qy} ${(cx - t.half).toFixed(2)} ${botY.toFixed(2)}`;
+  // sweep-flag 0 이라야 아래로 볼록한 물결이 된다(1이면 위로 파인다).
   for (let i = 0; i < t.scallops; i++) {
-    d += `a${r.toFixed(3)} ${r.toFixed(3)} 0 0 0 ${(r * 2).toFixed(3)} 0`;
+    d += `a${rx.toFixed(3)} ${ry.toFixed(3)} 0 0 0 ${(rx * 2).toFixed(3)} 0`;
   }
-  d += `Q${(cx + cxOff).toFixed(2)} ${(topY + cyOff).toFixed(2)} ${cx} ${topY}`;
+  d += `Q${qrx} ${qy} ${cx} ${topY}`;
   d += 'Z';
   return d;
+}
+
+/**
+ * 가지 전체를 SVG 문자열로 만든다. 전시 트리(tree.html)와 자리 고르기 트리(index.html)가
+ * 같이 쓴다. 두 화면의 트리가 따로 놀면 학생이 고른 자리와 전시 화면이 달라 보인다.
+ *
+ * 지킨 것:
+ * - **그림자는 바로 아래 단 안쪽에서만 보이게 오려 낸다**(clipPath). 예전에는 단을 조금
+ *   아래로 민 짙은 사본을 그대로 깔았더니 가지 옆으로 삐져나와, 밤하늘 위에서 스티커
+ *   외곽선처럼 보였다. 맨 아래 단은 드리울 데가 없으므로 그림자가 없다.
+ * - 단마다 위가 밝고 아래가 짙은 그러데이션, 그 위에 왼쪽에서 비치는 빛을 한 겹 더 얹는다.
+ *   한 색으로 칠하면 납작한 색종이가 된다.
+ * - 전구는 흩어진 점이 아니라 **단마다 비스듬히 늘어진 줄**로 건다. 흩어 두면 얼룩으로
+ *   보인다. 알은 작게 둔다(크게 두면 진주 목걸이가 된다).
+ * - id는 트리가 화면에 하나뿐이라 써도 된다(오너먼트와 다르다). 그래도 `xt` 접두사를 붙인다.
+ *
+ * @param {{lights?: boolean}} opt lights: 전구 줄을 그릴지
+ */
+export function treeArtSVG({ lights = true } = {}) {
+  const n = TIERS.length;
+  let defs = '';
+  let body = '';
+
+  // 왼쪽에서 비치는 빛과 오른쪽 그늘
+  defs += '<linearGradient id="xtSide" x1="0" y1="0" x2="1" y2="0">'
+    + '<stop offset="0" stop-color="#fff" stop-opacity=".14"/>'
+    + '<stop offset=".45" stop-color="#fff" stop-opacity="0"/>'
+    + '<stop offset=".6" stop-color="#000" stop-opacity="0"/>'
+    + '<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>';
+
+  // 아래 단부터 그린다. 그래야 위 단의 물결진 밑자락이 아래 단을 덮으며 층이 겹쳐 보인다.
+  for (let i = n - 1; i >= 0; i--) {
+    const t = TIERS[i];
+    defs += `<linearGradient id="xtT${i}" x1="0" y1="0" x2="0" y2="1">`
+      + `<stop offset="0" stop-color="${t.top}"/><stop offset="1" stop-color="${t.bottom}"/></linearGradient>`;
+    if (i < n - 1) {
+      defs += `<clipPath id="xtClip${i}"><path d="${tierPath(TIERS[i + 1])}"/></clipPath>`;
+      body += `<path d="${tierPath(t, 2.4)}" fill="#0f4a4c" fill-opacity=".45" clip-path="url(#xtClip${i})"/>`;
+    }
+    body += `<path d="${tierPath(t)}" fill="url(#xtT${i})"/>`;
+    body += `<path d="${tierPath(t)}" fill="url(#xtSide)"/>`;
+  }
+
+  if (lights) {
+    defs += '<radialGradient id="xtBulb">'
+      + '<stop offset="0" stop-color="#fff6d8"/>'
+      + '<stop offset=".35" stop-color="#ffd77a" stop-opacity=".55"/>'
+      + '<stop offset="1" stop-color="#ffb84a" stop-opacity="0"/></radialGradient>';
+    // 알은 세 무리로 나눠 둔다. 전시 화면이 무리마다 다른 박자로 숨 쉬게 한다(.xt-l0~2).
+    const groups = ['', '', ''];
+    TIERS.forEach((t, k) => {
+      const [yl, yr, sag] = SWAGS[k];
+      const half = y => ((y - t.apexY) / (t.baseY - t.apexY)) * t.half * 0.97;
+      const x0 = 50 - half(yl), x1 = 50 + half(yr);
+      const mx = (x0 + x1) / 2, my = (yl + yr) / 2 + sag * 2;
+      body += `<path d="M${x0.toFixed(2)} ${yl}Q${mx.toFixed(2)} ${my} ${x1.toFixed(2)} ${yr}" fill="none" stroke="#f1d48a" stroke-width=".35" stroke-opacity=".55"/>`;
+      const N = 9 + k * 4;
+      for (let j = 0; j <= N; j++) {
+        const u = j / N, a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
+        const x = (a * x0 + b * mx + c * x1).toFixed(2);
+        const y = (a * yl + b * my + c * yr).toFixed(2);
+        groups[(j + k) % 3] += `<circle cx="${x}" cy="${y}" r="1.25" fill="url(#xtBulb)"/>`
+          + `<circle cx="${x}" cy="${y}" r=".42" fill="#fff4cf"/>`;
+      }
+    });
+    body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
+  }
+
+  return `<defs>${defs}</defs>${body}`;
 }
 
 /** 꼭대기 별 — 꼭지 다섯 개 */
@@ -166,7 +250,7 @@ export function tierHalfAt(y) {
   for (const t of TIERS) {
     if (y < t.apexY) continue;
     // 밑단 아래로는 물결이 반지름만큼 더 내려와 있다
-    const r = t.half / t.scallops;
+    const r = (t.half / t.scallops) * FLAT;
     if (y > t.baseY + r) continue;
     const span = Math.min(y, t.baseY) - t.apexY;
     w = Math.max(w, (span / (t.baseY - t.apexY)) * t.half);
