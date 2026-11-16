@@ -5,15 +5,19 @@
    테스트(test/xmas.test.mjs)로 묶어 두고 싶었고, 트리 그림(tree.html의 <svg>)과
    좌표계를 반드시 같이 맞춰야 해서 한 곳에 숫자를 모아 두는 편이 안전하다.
 
-   좌표는 전부 트리 그림과 같은 viewBox 단위다(가로 100, 세로 130).
-   화면에서는 그대로 퍼센트로 쓴다 — 담는 칸의 가로세로 비율이 100:130이라
-   x 단위 = 가로 %, y 단위 = 세로의 (y/130*100) %가 된다.
+   좌표는 전부 트리 그림과 같은 viewBox 단위다(가로 100, 세로 140).
+   화면에서는 그대로 퍼센트로 쓴다 — 담는 칸의 가로세로 비율이 100:140이라
+   x 단위 = 가로 %, y 단위 = 세로의 (y/140*100) %가 된다.
+
+   세로는 2026-11-16에 130에서 140으로 늘렸다. 맨 아래 가지 밑으로 12만 남아 있어
+   기둥이 물결에 거의 가려졌다. 가지와 거는 자리는 그대로 두고 아래에 자리만 더 냈다.
+   저장된 자리(x, y)는 viewBox 단위라 이것과 상관없이 같은 데 걸린다.
    ════════════════════════════════════════════════════════════════ */
 
 // 트리 그림이 차지하는 범위. 아래 TIERS에서 뽑아낸 값이라 둘이 어긋날 수 없다.
 export const TREE = {
   vbW: 100,
-  vbH: 130,
+  vbH: 140,
   apexY: 14,     // 맨 위 가지 꼭대기(그 위는 별 자리)
   baseY: 118,    // 맨 아래 가지의 밑단
   baseHalf: 40,  // 맨 아래 가지의 반쪽 너비
@@ -125,6 +129,9 @@ export const TIERS = [
 export const BULGE = 1.6;
 export const FLAT = 0.55;
 
+/** 기둥: 위끝은 맨 아래 가지 속에 묻히고, 아래끝은 바닥 눈 더미에 묻힌다 */
+export const TRUNK = { topY: 112, groundY: 134, half: 5 };
+
 /** 단마다 전구 줄이 걸리는 높이: [왼쪽 끝 y, 오른쪽 끝 y, 처지는 정도] */
 const SWAGS = [[30, 38, 3], [52, 62, 4], [74, 86, 5], [97, 108, 6]];
 
@@ -190,6 +197,24 @@ export function treeArtSVG({ lights = true } = {}) {
     + '<stop offset=".45" stop-color="#fff" stop-opacity="0"/>'
     + '<stop offset=".6" stop-color="#000" stop-opacity="0"/>'
     + '<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>';
+
+  /* 바닥과 기둥 (2026-11-16 "밑동이 거의 안 보인다").
+     예전 기둥은 viewBox 맨 아래(130)까지 자리가 없어 물결 밑으로 3 남짓만 보였다.
+     viewBox를 140으로 늘리고 기둥을 바닥 눈 속까지 내렸다. 맨 아래 단은 그림자를 드리울
+     단이 없으므로 기둥 윗부분에 그늘을 따로 깐다(가지 밑에서 나온 것처럼 보이게).
+     바닥 눈은 가로 띠가 아니라 타원이다. 띠는 트리 칸 가장자리에서 네모로 잘린다. */
+  defs += '<linearGradient id="xtBark" x1="0" y1="0" x2="1" y2="0">'
+    + '<stop offset="0" stop-color="#9a6a42"/><stop offset=".45" stop-color="#7a5232"/>'
+    + '<stop offset="1" stop-color="#4f3420"/></linearGradient>';
+  defs += '<linearGradient id="xtBarkShade" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0" stop-color="#1a0f08" stop-opacity=".7"/>'
+    + '<stop offset=".45" stop-color="#1a0f08" stop-opacity="0"/></linearGradient>';
+  body += `<ellipse cx="50" cy="${TRUNK.groundY + 1}" rx="44" ry="4.6" fill="#dceaf7" opacity=".09"/>`;
+  body += `<rect x="${50 - TRUNK.half}" y="${TRUNK.topY}" width="${TRUNK.half * 2}" height="${TRUNK.groundY - TRUNK.topY}" rx="1.4" fill="url(#xtBark)"/>`;
+  body += `<rect x="${50 - TRUNK.half}" y="${TRUNK.topY}" width="${TRUNK.half * 2}" height="${TRUNK.groundY - TRUNK.topY}" fill="url(#xtBarkShade)"/>`;
+  // 기둥 밑을 덮는 눈 더미
+  body += `<ellipse cx="50" cy="${TRUNK.groundY}" rx="${TRUNK.half * 2.6}" ry="2.4" fill="#dceaf7" opacity=".42"/>`;
+  body += `<ellipse cx="48.5" cy="${TRUNK.groundY - 0.6}" rx="${TRUNK.half * 1.5}" ry="1.2" fill="#eef6fd" opacity=".3"/>`;
 
   // 아래 단부터 그린다. 그래야 위 단의 물결진 밑자락이 아래 단을 덮으며 층이 겹쳐 보인다.
   for (let i = n - 1; i >= 0; i--) {

@@ -373,8 +373,8 @@
    aspect-ratio가 높이를 폭에서 끌어내므로 **폭 하나만** 정해 주면 둘 다 맞는다. */
 .xm-treewrap {
   position: relative;
-  aspect-ratio: 100 / 130;
-  width: min(100%, 78vh * 100 / 130);
+  aspect-ratio: 100 / 140;
+  width: min(100%, 78vh * 100 / 140);
   /* 남는 자리를 위아래로 나눠 가운데에 둔다(폰에서 아래가 휑해지지 않게) */
   margin: auto;
 }

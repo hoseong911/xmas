@@ -101,7 +101,16 @@ test('layout: 같은 편지는 늘 같은 자리에 걸린다', () => {
 });
 
 // ── 트리 그림과 오너먼트 자리가 어긋나지 않는지 ─────────────────
-import { TIERS, tierPath, tierHalfAt, starPath, treeArtSVG } from '../tree-layout.js';
+import { TIERS, tierPath, tierHalfAt, starPath, treeArtSVG, TRUNK, FLAT } from '../tree-layout.js';
+
+test('기둥: 맨 아래 가지 밑으로 넉넉히 보이고, 칸 밖으로 넘치지 않는다', () => {
+  const last = TIERS[TIERS.length - 1];
+  const scallopBottom = last.baseY + (last.half / last.scallops) * FLAT;
+  // 2026-11-16 "밑동이 거의 안 보인다": 예전에는 물결 밑으로 3 남짓만 보였다
+  assert.ok(TRUNK.groundY - scallopBottom >= 8, `보이는 기둥 ${(TRUNK.groundY - scallopBottom).toFixed(1)}`);
+  assert.ok(TRUNK.topY < last.baseY, '기둥 위끝이 가지 속에 묻혀야 한다');
+  assert.ok(TRUNK.groundY + 2.4 <= TREE.vbH, '바닥 눈 더미가 칸 밖으로 넘친다');
+});
 
 test('TIERS: 위에서 아래로 넓어지고 겹쳐 있다', () => {
   for (let i = 1; i < TIERS.length; i++) {
