@@ -346,7 +346,8 @@ const SID_RE = /^[1-3]0[1-6](0[1-9]|[12]\d|30)$/;
 function validate1() {
   const sid = $('#sid').value.trim();
   const nm  = $('#sname').value.trim();
-  const ok  = SID_RE.test(sid) && nm.length >= 2 && !/\d/.test(nm);
+  // 이름은 전시 트리(가까이 보기)에 그대로 뜨므로 편지 본문과 같은 사전으로 걸러 둔다
+  const ok  = SID_RE.test(sid) && nm.length >= 2 && !/\d/.test(nm) && !containsBadWord(nm);
   $('#go1').disabled = !ok;
   // 어디가 어떻게 틀렸는지(학번 규칙)는 알려 주지 않는다 — 바르게 적으라고만 한다
   $('#err1').textContent = (ok || !(sid || nm)) ? '' : '학번과 이름을 바르게 기입하세요.';
@@ -367,7 +368,7 @@ $('#go1').addEventListener('click', () => {
   const sid = $('#sid').value.trim();
   const nm  = $('#sname').value.trim();
   if (!SID_RE.test(sid)) { $('#sid').classList.add('bad'); $('#err1').textContent = '학번과 이름을 바르게 기입하세요.'; return; }
-  if (nm.length < 2 || /\d/.test(nm)) { $('#sname').classList.add('bad'); $('#err1').textContent = '학번과 이름을 바르게 기입하세요.'; return; }
+  if (nm.length < 2 || /\d/.test(nm) || containsBadWord(nm)) { $('#sname').classList.add('bad'); $('#err1').textContent = '학번과 이름을 바르게 기입하세요.'; return; }
   form.sid = sid; form.name = nm;
   show(2);
   $('#tq').focus();
