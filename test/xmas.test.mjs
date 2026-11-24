@@ -141,6 +141,15 @@ test('treeArtSVG: 그림자는 아래 단에만 오려 붙이고, 전구 줄은 
   assert.equal((svg.match(/<clipPath /g) || []).length, TIERS.length - 1);
   assert.ok(/class="xt-l0"/.test(svg));
   assert.ok(!/xtBulb/.test(treeArtSVG({ lights: false })));
+
+
+  /* 수채화 시안도 같은 전구 줄을 쓴다. 예전처럼 흩어진 흰 네 갈래 조각이면
+     트리에 도형이 박힌 것처럼 보였다(2026-11-25). 번지는 심지만 남아야 한다. */
+  const p = treeArtSVG({ paint: true });
+  assert.ok(!/NaN|undefined/.test(p));
+  assert.ok(/xtBulb/.test(p) && /xtCore/.test(p) && /class="xt-l2"/.test(p));
+  assert.ok(!/fill="#ffffff"/.test(p));          // 테두리가 또렷한 흰 점이 없다
+  assert.ok(!/xtBulb/.test(treeArtSVG({ paint: true, lights: false })));
 });
 
 test('starPath: 꼭지 다섯 개짜리 닫힌 길이 나온다', () => {

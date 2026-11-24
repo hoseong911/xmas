@@ -202,6 +202,47 @@ export function tierPath(t, dy = 0, flat = FLAT) {
   return d;
 }
 
+/* 전구 줄 — 두 시안이 같이 쓴다.
+   알을 트리에 흩어 두면 "반짝이가 군데군데 박힌 도형의 집합"으로 보인다
+   (2026-11-25). 단마다 비스듬히 늘어진 줄에 꿰어야 전구로 읽힌다.
+   soft: 수채화 시안용. 단단한 흰 점과 또렷한 줄을 빼고 번지는 빛만 남긴다 —
+   물감 그림 위에서는 매끈한 도형이 혼자 튀어 보인다. */
+function swagLights({ soft = false } = {}) {
+  let defs = '<radialGradient id="xtBulb">'
+    + '<stop offset="0" stop-color="#fff6d8"/>'
+    + '<stop offset=".35" stop-color="#ffd77a" stop-opacity=".55"/>'
+    + '<stop offset="1" stop-color="#ffb84a" stop-opacity="0"/></radialGradient>';
+  // 심지. 수채화에서는 테두리가 없어야 하므로 꽉 찬 점 대신 번지는 점을 쓴다.
+  if (soft) defs += '<radialGradient id="xtCore">'
+    + '<stop offset="0" stop-color="#fffdf2"/>'
+    + '<stop offset=".55" stop-color="#fff4cf" stop-opacity=".7"/>'
+    + '<stop offset="1" stop-color="#fff4cf" stop-opacity="0"/></radialGradient>';
+
+  let body = '';
+  const groups = ['', '', ''];
+  TIERS.forEach((t, k) => {
+    const [yl, yr, sag] = SWAGS[k];
+    const half = y => ((y - t.apexY) / (t.baseY - t.apexY)) * t.half * 0.97;
+    const x0 = 50 - half(yl), x1 = 50 + half(yr);
+    const mx = (x0 + x1) / 2, my = (yl + yr) / 2 + sag * 2;
+    body += `<path d="M${x0.toFixed(2)} ${yl}Q${mx.toFixed(2)} ${my} ${x1.toFixed(2)} ${yr}" fill="none" stroke="#f1d48a" stroke-width="${soft ? '.3' : '.35'}" stroke-opacity="${soft ? '.26' : '.55'}"/>`;
+    const N = 9 + k * 4;
+    for (let j = 0; j <= N; j++) {
+      const u = j / N, a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
+      const x = (a * x0 + b * mx + c * x1).toFixed(2);
+      const y = (a * yl + b * my + c * yr).toFixed(2);
+      // 알마다 크기를 조금씩 달리한다. 다 같으면 줄에 꿰어도 모눈처럼 보인다.
+      const v = soft ? 1 + ((j * 7 + k * 3) % 5) * 0.12 : 1;
+      groups[(j + k) % 3] += `<circle cx="${x}" cy="${y}" r="${(1.25 * v).toFixed(2)}" fill="url(#xtBulb)"/>`
+        + (soft
+          ? `<circle cx="${x}" cy="${y}" r="${(0.6 * v).toFixed(2)}" fill="url(#xtCore)"/>`
+          : `<circle cx="${x}" cy="${y}" r=".42" fill="#fff4cf"/>`);
+    }
+  });
+  body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
+  return { defs, body };
+}
+
 /**
  * 가지 전체를 SVG 문자열로 만든다. 전시 트리(tree.html)와 자리 고르기 트리(index.html)가
  * 같이 쓴다. 두 화면의 트리가 따로 놀면 학생이 고른 자리와 전시 화면이 달라 보인다.
@@ -265,28 +306,8 @@ export function treeArtSVG({ lights = true, paint = false } = {}) {
   }
 
   if (lights) {
-    defs += '<radialGradient id="xtBulb">'
-      + '<stop offset="0" stop-color="#fff6d8"/>'
-      + '<stop offset=".35" stop-color="#ffd77a" stop-opacity=".55"/>'
-      + '<stop offset="1" stop-color="#ffb84a" stop-opacity="0"/></radialGradient>';
-    // 알은 세 무리로 나눠 둔다. 전시 화면이 무리마다 다른 박자로 숨 쉬게 한다(.xt-l0~2).
-    const groups = ['', '', ''];
-    TIERS.forEach((t, k) => {
-      const [yl, yr, sag] = SWAGS[k];
-      const half = y => ((y - t.apexY) / (t.baseY - t.apexY)) * t.half * 0.97;
-      const x0 = 50 - half(yl), x1 = 50 + half(yr);
-      const mx = (x0 + x1) / 2, my = (yl + yr) / 2 + sag * 2;
-      body += `<path d="M${x0.toFixed(2)} ${yl}Q${mx.toFixed(2)} ${my} ${x1.toFixed(2)} ${yr}" fill="none" stroke="#f1d48a" stroke-width=".35" stroke-opacity=".55"/>`;
-      const N = 9 + k * 4;
-      for (let j = 0; j <= N; j++) {
-        const u = j / N, a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
-        const x = (a * x0 + b * mx + c * x1).toFixed(2);
-        const y = (a * yl + b * my + c * yr).toFixed(2);
-        groups[(j + k) % 3] += `<circle cx="${x}" cy="${y}" r="1.25" fill="url(#xtBulb)"/>`
-          + `<circle cx="${x}" cy="${y}" r=".42" fill="#fff4cf"/>`;
-      }
-    });
-    body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
+    const L = swagLights();
+    defs += L.defs; body += L.body;
   }
 
   return `<defs>${defs}</defs>${body}`;
@@ -295,24 +316,10 @@ export function treeArtSVG({ lights = true, paint = false } = {}) {
 /* ── 시안 ② 수채화 (2026-11-24) ─────────────────────────────────
    선생님이 보여 주신 참고 그림처럼 물감으로 칠한 트리. 가지와 기둥은 그림 한 장
    (tools/make-tree-paint.mjs가 tierPath 윤곽 그대로 칠한다)이고, 그 위에 반짝이만
-   SVG로 얹는다. 반짝이는 전구 줄처럼 세 무리(.xt-l0~2)로 나눠 화면이 박자를 어긋나게 숨 쉬게 한다.
+   SVG로 얹는다. 전구 줄은 기하 시안과 같은 swagLights()이고, 세 무리(.xt-l0~2)로 나눠
+   화면이 박자를 어긋나게 숨 쉬게 한다.
    주소에 ?art=paint 일 때만 켠다. */
 export const PAINT_IMG = 'img/tree-paint.webp';
-
-/** 반짝이 자리: [x, y, 크기]. 난수로 두면 새로고침마다 바뀌어 어수선하므로 정해 둔다. */
-const SPARKLES = [
-  [50, 22, 1.1], [44, 33, 1.3], [56, 38, 0.9],
-  [40, 50, 1.2], [58, 47, 1.4], [49, 60, 1.0], [33, 64, 1.1], [65, 63, 1.2],
-  [42, 74, 1.3], [57, 78, 1.0], [27, 86, 1.2], [70, 84, 1.4], [49, 90, 1.1],
-  [36, 99, 1.0], [62, 98, 1.3], [20, 108, 1.2], [46, 108, 1.4], [77, 107, 1.1],
-  [31, 115, 1.0], [66, 116, 1.2],
-];
-
-/** 네 갈래 반짝이: 가운데로 오목하게 모이는 별 */
-function sparklePath(x, y, r) {
-  const q = (dx, dy) => `Q${x} ${y} ${(x + dx).toFixed(2)} ${(y + dy).toFixed(2)}`;
-  return `M${x} ${(y - r).toFixed(2)}${q(r, 0)}${q(0, r)}${q(-r, 0)}${q(0, -r)}Z`;
-}
 
 function paintedTreeSVG({ lights = true } = {}) {
   let defs = '', body = '';
@@ -322,16 +329,8 @@ function paintedTreeSVG({ lights = true } = {}) {
   body += `<image href="${PAINT_IMG}" x="0" y="0" width="${TREE.vbW}" height="${TREE.vbH}"/>`;
 
   if (lights) {
-    defs += '<radialGradient id="xtGlow">'
-      + '<stop offset="0" stop-color="#fffbe6" stop-opacity=".95"/>'
-      + '<stop offset=".3" stop-color="#fff0b0" stop-opacity=".45"/>'
-      + '<stop offset="1" stop-color="#ffe08a" stop-opacity="0"/></radialGradient>';
-    const groups = ['', '', ''];
-    SPARKLES.forEach(([x, y, s], k) => {
-      groups[k % 3] += `<circle cx="${x}" cy="${y}" r="${(s * 3.4).toFixed(2)}" fill="url(#xtGlow)"/>`
-        + `<path d="${sparklePath(x, y, s * 1.5)}" fill="#ffffff"/>`;
-    });
-    body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
+    const L = swagLights({ soft: true });
+    defs += L.defs; body += L.body;
   }
   return `<defs>${defs}</defs>${body}`;
 }
