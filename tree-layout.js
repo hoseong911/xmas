@@ -141,14 +141,16 @@ const SWAGS = [[30, 38, 3], [52, 62, 4], [74, 86, 5], [97, 108, 6]];
  * 오른쪽 끝까지 간 뒤, 다시 꼭대기로 돌아온다.
  * @param {object} t TIERS의 한 칸
  * @param {number} dy 아래로 밀 거리(그림자 사본을 만들 때 쓴다)
+ * @param {number} flat 물결 깊이. 수채화 그림(tools/make-tree-paint.mjs)만 조금 더 깊게 쓴다.
+ *   거는 자리 셈(tierHalfAt)은 늘 FLAT 그대로다.
  */
-export function tierPath(t, dy = 0) {
+export function tierPath(t, dy = 0, flat = FLAT) {
   const cx = 50;
   const topY = t.apexY + dy;
   const botY = t.baseY + dy;
   const h = botY - topY;
   const rx = t.half / t.scallops;       // 물결 하나의 가로 반지름
-  const ry = rx * FLAT;
+  const ry = rx * flat;
   /* 옆선의 제어점은 꼭대기와 밑끝을 잇는 직선의 한가운데에서 **바깥쪽 법선 방향으로**
      BULGE만큼 민 자리다. 직선 위에 두면 아무 일도 안 일어나고(예전에 0.60/0.58이 그랬다),
      법선 방향으로 밀어야 단의 크기와 상관없이 같은 정도로 부푼다. */
@@ -189,7 +191,8 @@ export function tierPath(t, dy = 0) {
  *   needles: 시안 ②(2026-11-24). 가지 안쪽을 침엽 질감 그림으로 덮고 가장자리에 바늘잎을 단다.
  *            윤곽은 그대로라 거는 자리와 저장된 자리는 바뀌지 않는다. 주소에 ?art=needle 일 때만 켠다.
  */
-export function treeArtSVG({ lights = true, needles = false } = {}) {
+export function treeArtSVG({ lights = true, needles = false, paint = false } = {}) {
+  if (paint) return paintedTreeSVG({ lights });
   const n = TIERS.length;
   let defs = '';
   let body = '';
@@ -269,6 +272,52 @@ export function treeArtSVG({ lights = true, needles = false } = {}) {
     body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
   }
 
+  return `<defs>${defs}</defs>${body}`;
+}
+
+/* ── 시안 ② 수채화 (2026-11-24) ─────────────────────────────────
+   선생님이 보여 주신 참고 그림처럼 물감으로 칠한 트리. 가지와 기둥은 그림 한 장
+   (tools/make-tree-paint.mjs가 tierPath 윤곽 그대로 칠한다)이고, 그 위에 반짝이만
+   SVG로 얹는다. 반짝이는 전구 줄처럼 세 무리(.xt-l0~2)로 나눠 화면이 박자를 어긋나게 숨 쉬게 한다.
+   주소에 ?art=paint 일 때만 켠다. */
+export const PAINT_IMG = 'img/tree-paint.webp';
+
+/** 반짝이 자리: [x, y, 크기]. 난수로 두면 새로고침마다 바뀌어 어수선하므로 정해 둔다. */
+const SPARKLES = [
+  [50, 22, 1.1], [44, 33, 1.3], [56, 38, 0.9],
+  [40, 50, 1.2], [58, 47, 1.4], [49, 60, 1.0], [33, 64, 1.1], [65, 63, 1.2],
+  [42, 74, 1.3], [57, 78, 1.0], [27, 86, 1.2], [70, 84, 1.4], [49, 90, 1.1],
+  [36, 99, 1.0], [62, 98, 1.3], [20, 108, 1.2], [46, 108, 1.4], [77, 107, 1.1],
+  [31, 115, 1.0], [66, 116, 1.2],
+];
+
+/** 네 갈래 반짝이: 가운데로 오목하게 모이는 별 */
+function sparklePath(x, y, r) {
+  const q = (dx, dy) => `Q${x} ${y} ${(x + dx).toFixed(2)} ${(y + dy).toFixed(2)}`;
+  return `M${x} ${(y - r).toFixed(2)}${q(r, 0)}${q(0, r)}${q(-r, 0)}${q(0, -r)}Z`;
+}
+
+function paintedTreeSVG({ lights = true } = {}) {
+  let defs = '', body = '';
+  // 바닥 눈(기둥 그림 밑에 깔린다)
+  body += `<ellipse cx="50" cy="${TRUNK.groundY + 1}" rx="44" ry="4.6" fill="#dceaf7" opacity=".09"/>`;
+  body += `<image href="${PAINT_IMG}" x="0" y="0" width="${TREE.vbW}" height="${TREE.vbH}"/>`;
+  // 기둥 밑을 덮는 눈 더미
+  body += `<ellipse cx="50" cy="${TRUNK.groundY}" rx="${TRUNK.half * 2.6}" ry="2.4" fill="#dceaf7" opacity=".42"/>`;
+  body += `<ellipse cx="48.5" cy="${TRUNK.groundY - 0.6}" rx="${TRUNK.half * 1.5}" ry="1.2" fill="#eef6fd" opacity=".3"/>`;
+
+  if (lights) {
+    defs += '<radialGradient id="xtGlow">'
+      + '<stop offset="0" stop-color="#fffbe6" stop-opacity=".95"/>'
+      + '<stop offset=".3" stop-color="#fff0b0" stop-opacity=".45"/>'
+      + '<stop offset="1" stop-color="#ffe08a" stop-opacity="0"/></radialGradient>';
+    const groups = ['', '', ''];
+    SPARKLES.forEach(([x, y, s], k) => {
+      groups[k % 3] += `<circle cx="${x}" cy="${y}" r="${(s * 3.4).toFixed(2)}" fill="url(#xtGlow)"/>`
+        + `<path d="${sparklePath(x, y, s * 1.5)}" fill="#ffffff"/>`;
+    });
+    body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
+  }
   return `<defs>${defs}</defs>${body}`;
 }
 
