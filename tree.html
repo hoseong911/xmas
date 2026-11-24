@@ -231,7 +231,9 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
     return el;
   };
 
-  art.insertAdjacentHTML('beforeend', treeArtSVG());
+  // ?art=needle 은 시안 ②(침엽 질감)를 띄워 보는 주소다. 고르시면 기본으로 바꾼다.
+  const needles = new URLSearchParams(location.search).get('art') === 'needle';
+  art.insertAdjacentHTML('beforeend', treeArtSVG({ needles }));
 
   /* 꼭대기 별.
      바깥에 옅은 별을 한 겹 더 까는 방식은 버렸다 — 어두운 밤하늘 위에서

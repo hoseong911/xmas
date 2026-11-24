@@ -486,7 +486,9 @@ function drawPickTree() {
     art.appendChild(el);
   };
   // 전시 트리와 같은 그림이어야 고른 자리가 전시 화면에서도 같은 데로 보인다
-  art.insertAdjacentHTML('beforeend', treeArtSVG());
+  // ?art=needle 은 시안 ②(침엽 질감). 전시 트리와 같이 켜야 두 화면이 같아 보인다.
+  const needles = new URLSearchParams(location.search).get('art') === 'needle';
+  art.insertAdjacentHTML('beforeend', treeArtSVG({ needles }));
   add('path', { d: starPath(50, 11, 8.4, 3.5), fill: '#f7d479' });
 }
 
