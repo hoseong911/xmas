@@ -188,7 +188,7 @@ const DEFS = [
       `<path d="${CANE_PATH}" fill="none" stroke="url(#xmSheenLine)" stroke-width="12" stroke-linecap="round"/>`
   },
   {
-    key: 'gift', name: '선물', glow: '#49b185',
+    key: 'gift', name: '선물', glow: '#c0587a',
     body: hook() +
       `<path d="M30 28C24 28 18 26 15.5 23c-2-2.4.3-5.3 3.4-4.3C22.8 19.9 27 23.4 30 28Z" fill="#e4635a"/>` +
       `<path d="M34 28C40 28 46 26 48.5 23c2-2.4-.3-5.3-3.4-4.3C41.2 19.9 37 23.4 34 28Z" fill="#e4635a"/>` +
@@ -231,13 +231,37 @@ export function isOrnamentKey(key) {
   return Object.prototype.hasOwnProperty.call(BY_KEY, key);
 }
 
+/* ── 수채화 오너먼트 (2026-11-24) ────────────────────────────────
+   트리를 수채화로 바꾸고 나니 위의 매끈한 벡터 오너먼트가 칠한 가지 위에서 스티커처럼 떴다.
+   그래서 트리와 같은 붓으로 칠한 그림을 쓴다. tools/make-ornament-paint.mjs가
+   열 종류를 ORNAMENT_KEYS 순서대로 가로로 이어 붙인 띠 한 장(PAINT_SPRITE)을 만들고,
+   ornamentSVG는 그 띠를 칸 번호만큼 밀어 viewBox 64x80 창으로 잘라 보여 준다.
+     - 그림은 한 장이라 160개가 떠도 한 번만 받고 한 번만 푼다.
+     - id나 defs가 없으니 "오너먼트마다 defs 금지" 규칙과도 부딪치지 않는다.
+     - **순서를 바꾸거나 종류를 더하면 그림을 다시 만들어야 한다**(칸이 밀린다).
+   트리처럼 주소에 `?art=svg` 를 붙이면 예전 벡터 오너먼트가 뜬다(트리와 같은 스위치).
+   node 테스트에서는 location이 없으므로 벡터로 그린다. */
+export const PAINT_SPRITE = 'img/ornaments-paint.webp';
+export const PAINT_CELL = 320;   // 칸 하나의 가로 px(세로는 400). 148px 완료 화면을 2배 화면에서 보아도 넉넉하다.
+
+const PAINT = (() => {
+  try { return (new URLSearchParams(location.search).get('art') || 'paint') === 'paint'; }
+  catch { return false; }
+})();
+
 /** 오너먼트 한 개를 <svg> 문자열로 만든다. 없는 키는 빨간 방울로 대체한다. */
 export function ornamentSVG(key, size = 64, cls = '') {
-  ensureDefs();
   const d = BY_KEY[key] || DEFS[0];
   const h = Math.round(size * 80 / 64);
-  return `<svg class="xm-orn${cls ? ' ' + cls : ''}" width="${size}" height="${h}" ` +
-    `viewBox="0 0 64 80" aria-hidden="true">${d.body}</svg>`;
+  const head = `<svg class="xm-orn${cls ? ' ' + cls : ''}" width="${size}" height="${h}" ` +
+    `viewBox="0 0 64 80" aria-hidden="true">`;
+  if (PAINT) {
+    const i = DEFS.indexOf(d), n = DEFS.length;
+    return head + `<image href="${PAINT_SPRITE}" x="${-64 * i}" y="0" width="${64 * n}" height="80" ` +
+      `preserveAspectRatio="none"/></svg>`;
+  }
+  ensureDefs();
+  return head + `${d.body}</svg>`;
 }
 
 export function ornamentName(key) {

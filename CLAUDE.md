@@ -29,7 +29,7 @@ GitHub Pages로 배포된다(`hoseong911/xmas` → `https://hoseong911.github.io
 | 모듈 | 하는 일 |
 |------|---------|
 | `xmas-core.js` | Firebase 연결, 설정, 서버 시각, 밤하늘 눈 내리기 |
-| `ornaments.js` | 오너먼트 그림 10종 |
+| `ornaments.js` | 오너먼트 그림 10종(기본은 수채화 그림 `img/ornaments-paint.webp`, `?art=svg`면 벡터) |
 | `tree-layout.js` | 트리에 거는 자리 계산 (테스트: `test/xmas.test.mjs`) |
 | `xmas.css` | 네 화면 공통 스타일 |
 | `demo-data.js` | 미리보기용 가짜 데이터(`?demo=160`) |
@@ -123,6 +123,15 @@ Firebase 프로젝트에 하나뿐이라 두 군데 두면 한쪽에서 배포�
 - **오너먼트는 `shared/icons.js`로 못 만든다.** 그쪽 `icon()`은 바깥 `<svg>`에
   `fill="none" stroke="currentColor"`를 박는 한 색 선 아이콘 전용이다. 오너먼트는 색을 채운
   콘텐츠 그림이라 `ornaments.js`에 따로 뒀다. **화면의 UI 아이콘은 그대로 `shared/icons.js`를 쓴다.**
+- **오너먼트도 기본은 수채화 그림이다**(2026-11-24). 트리를 수채화로 바꾸자 벡터 오너먼트가
+  스티커처럼 떠서, `tools/make-ornament-paint.mjs`가 트리와 같은 붓(물감 번짐, 비켜 찍은 그늘과 빛,
+  종이 결)으로 열 종류를 칠해 **가로 띠 한 장**(`img/ornaments-paint.webp`, 칸 320x400)을 만든다.
+  `ornamentSVG()`는 그 띠를 칸 번호만큼 밀어 viewBox 64x80으로 잘라 보인다.
+  **`DEFS` 순서를 바꾸거나 종류를 더하면 그림을 다시 만들어야 한다**(칸이 밀린다). 색을 고칠 때도
+  `ornaments.js`가 아니라 이 도구를 고치고 다시 돌린다. 주소에 `?art=svg`를 붙이면 트리와 함께
+  아래의 벡터 오너먼트로 돌아간다(node 테스트도 벡터로 그린다).
+  선물 상자는 초록이면 민트 가지에 묻혀 베리색으로 칠했다(벡터판은 초록 그대로).
+- 아래 셋(defs, gloss, 무늬 순서)은 **벡터 오너먼트**(`?art=svg`) 이야기다.
 - **오너먼트 하나하나에 `<defs>`나 `id`를 넣지 말 것.** 한 화면에 수백 개가 뜨므로
   id가 겹쳐 그라데이션이 서로 엉킨다. 대신 **문서에 그라데이션 한 벌만 두고 모두가 그걸
   가리킨다** — `ornaments.js`의 `GRADIENTS`(빛 `xmSheen`, 그늘 `xmShade`, 선용 `xmSheenLine`,
