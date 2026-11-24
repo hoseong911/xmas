@@ -213,47 +213,75 @@ const url = await page.evaluate(({ tiers, TRUNK, STAR, W, H, SCALE }) => {
   }
 
   /* ── 꼭대기 별 ──
-     예전 별은 금색 별 위에 연한 별을 겹친 두 겹이라 클립아트 같았다. 참고 그림처럼
-     꼭지를 둥글게 하고, 가운데에서 꼭지로 가는 능선을 따라 열 개의 면을 밝고 어둡게
-     나눠 도톰한 입체로 칠한다. 빛은 왼쪽 위에서 온다.
-     반짝이는 섬광과 둘레 빛은 화면(tree.html)이 이 위에 따로 얹는다. */
+     두 번 고쳤다.
+     1) 처음 별은 금색 별 위에 연한 별을 겹친 두 겹이라 클립아트 같았다.
+     2) 다음엔 가장자리를 따라 짙은 테두리를 번지게 둘렀는데, 그 안쪽이 밝게 남아
+        **큰 별 안에 작은 별이 또 있는 것처럼** 보였다("이중으로 겹친 도형 같다").
+     지금은 테두리를 두르지 않는다. 한 덩어리 별에 빛만 다르게 받게 한다.
+       - 바탕: 왼쪽 위는 밝은 금, 오른쪽 아래는 짙은 금으로 부드럽게 넘어간다.
+       - 안쪽 그늘과 빛: 별 모양을 비켜 찍어 생기는 틈만 칠한다. 오른쪽 아래 가장자리 안쪽만
+         어둡고 왼쪽 위 가장자리 안쪽만 밝아서 테가 한 바퀴 돌지 않는다. 이게 도톰함을 만든다.
+       - 능선: 가운데에서 꼭지로 가는 면을 아주 옅게, 흐리게 나눈다. 진하면 다시 도형이 된다.
+     둘레 빛과 반짝임은 화면(tree.html)이 따로 얹는다. */
   {
     const CX = 50, CY = STAR.y, RO = STAR.ro, RI = STAR.ri;
-    const c = mk(), x = c.getContext('2d');
-    x.scale(SCALE, SCALE);
     const pt = (k, r) => { const a = (-90 + k * 36) * Math.PI / 180; return [CX + r * Math.cos(a), CY + r * Math.sin(a)]; };
     const outline = new Path2D();
     for (let k = 0; k < 10; k++) {
-      const [px, py] = pt(k, k % 2 ? RI : RO * 0.93);
+      const [px, py] = pt(k, k % 2 ? RI * 1.05 : RO * 0.92);
       k ? outline.lineTo(px, py) : outline.moveTo(px, py);
     }
     outline.closePath();
-    // 둥근 꼭지: 같은 별을 굵은 둥근 선으로 한 번 더 그어 부풀린다
-    x.fillStyle = '#f2b93b'; x.strokeStyle = '#f2b93b';
-    x.lineJoin = 'round'; x.lineWidth = 1.5;
-    x.fill(outline); x.stroke(outline);
+
+    // 별 실루엣(둥근 꼭지: 같은 별을 굵은 둥근 선으로 한 번 더 그어 부풀린다)
+    const sil = mk(), s = sil.getContext('2d');
+    s.scale(SCALE, SCALE);
+    s.fillStyle = '#000'; s.strokeStyle = '#000'; s.lineJoin = 'round'; s.lineWidth = 1.7;
+    s.fill(outline); s.stroke(outline);
+
+    const c = mk(), x = c.getContext('2d');
+    x.drawImage(sil, 0, 0);
+    x.globalCompositeOperation = 'source-in';
+    x.scale(SCALE, SCALE);
+    const base = x.createLinearGradient(CX - RO, CY - RO, CX + RO * 0.8, CY + RO);
+    base.addColorStop(0, '#ffe07a'); base.addColorStop(0.5, '#f5bf3e'); base.addColorStop(1, '#df9520');
+    x.fillStyle = base; x.fillRect(CX - 12, CY - 12, 24, 24);
+    x.setTransform(1, 0, 0, 1, 0, 0);
     x.globalCompositeOperation = 'source-atop';
-    const LIGHT = Math.atan2(-1, -0.7);   // 왼쪽 위
+
+    // 실루엣을 (dx, dy)만큼 비켜 찍고 남는 틈을 color로 칠해 흐리게 얹는다
+    const rimShade = (dx, dy, color, blurU) => {
+      const r = mk(), rx = r.getContext('2d');
+      rx.fillStyle = color; rx.fillRect(0, 0, r.width, r.height);
+      rx.globalCompositeOperation = 'destination-out';
+      rx.drawImage(sil, dx * SCALE, dy * SCALE);
+      x.save(); x.filter = `blur(${SCALE * blurU}px)`; x.drawImage(r, 0, 0); x.restore();
+    };
+    rimShade(-0.75, -0.9, 'rgba(165, 88, 8, .55)', 0.55);    // 오른쪽 아래 안쪽 그늘
+    rimShade(0.6, 0.75, 'rgba(255, 250, 215, .75)', 0.45);    // 왼쪽 위 안쪽 빛
+
+    // 능선: 아주 옅게, 흐리게
+    const f = mk(), fx = f.getContext('2d');
+    fx.scale(SCALE, SCALE);
+    const LIGHT = Math.atan2(-1, -0.7);
     for (let k = 0; k < 10; k++) {
       const [ax, ay] = pt(k, k % 2 ? RI : RO * 1.2);
       const [bx, by] = pt(k + 1, (k + 1) % 2 ? RI : RO * 1.2);
-      const mid = Math.atan2((ay + by) / 2 - CY, (ax + bx) / 2 - CX);
-      const lit = Math.cos(mid - LIGHT);             // 1이면 빛을 정면으로 받는 면
-      x.fillStyle = lit > 0
-        ? `rgba(255, 238, 170, ${(0.15 + lit * 0.55).toFixed(2)})`
-        : `rgba(176, 104, 18, ${(0.12 - lit * 0.42).toFixed(2)})`;
-      x.beginPath(); x.moveTo(CX, CY); x.lineTo(ax, ay); x.lineTo(bx, by); x.closePath(); x.fill();
+      const lit = Math.cos(Math.atan2((ay + by) / 2 - CY, (ax + bx) / 2 - CX) - LIGHT);
+      fx.fillStyle = lit > 0 ? `rgba(255, 244, 200, ${(lit * 0.22).toFixed(2)})`
+                             : `rgba(170, 95, 10, ${(-lit * 0.2).toFixed(2)})`;
+      fx.beginPath(); fx.moveTo(CX, CY); fx.lineTo(ax, ay); fx.lineTo(bx, by); fx.closePath(); fx.fill();
     }
-    // 가운데 둥근 빛과 테두리 쪽 따뜻한 그늘
-    const hi = x.createRadialGradient(CX - 1.6, CY - 2, 0, CX - 1.6, CY - 2, 4.5);
-    hi.addColorStop(0, 'rgba(255, 252, 230, .7)'); hi.addColorStop(1, 'rgba(255, 252, 230, 0)');
-    x.fillStyle = hi; x.fillRect(CX - 10, CY - 10, 20, 20);
-    x.save(); x.filter = `blur(${SCALE * 0.35}px)`;
-    x.strokeStyle = 'rgba(190, 110, 20, .45)'; x.lineWidth = 0.9; x.lineJoin = 'round';
-    x.stroke(outline); x.restore();
-    x.setTransform(1, 0, 0, 1, 0, 0);
-    grain(x, 12, 8);
-    m.save(); m.setTransform(1, 0, 0, 1, 0, 0); m.filter = 'blur(0.7px)'; m.drawImage(c, 0, 0); m.restore();
+    x.save(); x.filter = `blur(${SCALE * 0.3}px)`; x.drawImage(f, 0, 0); x.restore();
+
+    // 윗팔 왼쪽에 길쭉한 반사광 하나
+    x.save(); x.scale(SCALE, SCALE); x.filter = `blur(${SCALE * 0.35}px)`;
+    x.fillStyle = 'rgba(255, 255, 240, .6)';
+    x.beginPath(); x.ellipse(CX - 1.1, CY - 3.6, 0.55, 2.0, 0.32, 0, Math.PI * 2); x.fill();
+    x.restore();
+
+    grain(x, 8, 6);
+    m.save(); m.setTransform(1, 0, 0, 1, 0, 0); m.filter = 'blur(0.6px)'; m.drawImage(c, 0, 0); m.restore();
   }
 
   return main.toDataURL('image/webp', 0.86);

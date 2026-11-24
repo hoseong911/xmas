@@ -110,6 +110,17 @@
       100%    { opacity: 0; transform: scale(.25) }
     }
 
+    /* 수채화 시안(?art=paint)의 별 반짝임. 7.2초에 한 번, 세 꼭지가 차례로.
+       천천히 번졌다 사라진다(0.2초짜리 번쩍임은 스티커처럼 보였다). 켜져 있는 구간은 25%쯤. */
+    .xm-glint { transform-box: fill-box; transform-origin: center; opacity: 0;
+                animation: xm-glint 7.2s ease-in-out infinite }
+    @keyframes xm-glint {
+      0%, 66% { opacity: 0; transform: scale(.4) rotate(-12deg) }
+      78%     { opacity: 1; transform: scale(1) rotate(0deg) }
+      92%     { opacity: 0; transform: scale(.75) rotate(8deg) }
+      100%    { opacity: 0; transform: scale(.4) rotate(-12deg) }
+    }
+
     /* 가지의 전구 줄. 알을 세 무리로 나눠 박자를 어긋나게 숨 쉬게 한다.
        한꺼번에 밝아지면 전등 스위치를 켠 것처럼 보인다. 꺼지지는 않고 은은하게만 오르내린다.
        무리째(g 세 개) opacity만 바꾸므로 값이 거의 들지 않는다. */
@@ -303,6 +314,42 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
     [162,  3.6, 2.0, 1.25, 0.15],
     [ 90,  3.2, 1.6, 1.60, 0.70],
   ];
+  /* 수채화 시안의 반짝임 (2026-11-24 "별이 이중으로 겹친 도형 같다, 반짝이는 효과도 그렇다").
+     단단한 흰 네 갈래 조각이 켜졌다 꺼지면 빛이 아니라 스티커가 붙었다 떨어지는 것 같다.
+     참고 그림처럼 둘레 빛(#starGlow)이 숨 쉬는 것을 바탕에 두고, 가끔 꼭지 하나에서
+     **가늘고 긴 빛줄기**가 천천히 번졌다 사라지게 한다. 한 번에 하나만 뜬다. */
+  if (look === 'paint') {
+    /* 가는 빛줄기: 아주 납작한 마름모 두 개를 십자로. sparkPath는 곡선이라 갈래가
+       통통해져서 또 하나의 별처럼 보였다(첫 시도). 여기서는 곧은 선으로 가늘게 뺀다. */
+    const ray = (cx, cy, r, w) => {
+      const f = n => n.toFixed(2);
+      return `M${f(cx)} ${f(cy - r)}L${f(cx + w)} ${f(cy)}L${f(cx)} ${f(cy + r)}L${f(cx - w)} ${f(cy)}Z`
+           + `M${f(cx - r)} ${f(cy)}L${f(cx)} ${f(cy - w)}L${f(cx + r)} ${f(cy)}L${f(cx)} ${f(cy + w)}Z`;
+    };
+    // [꼭지각(도), 중심에서 거리, 긴 갈래 길이, 시작 어긋남(초)]
+    const GLINTS = [[-90, 7.4, 3.4, 0], [-162, 7.0, 2.9, 2.4], [-18, 7.0, 3.1, 4.8]];
+    for (const [deg, dist, len, delay] of GLINTS) {
+      const a = deg * Math.PI / 180;
+      const cx = 50 + Math.cos(a) * dist, cy = STAR_Y + Math.sin(a) * dist;
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'xm-glint');
+      g.style.animationDelay = `-${delay}s`;
+      const parts = [
+        ['circle', { cx, cy, r: 1.3, fill: 'url(#xmSparkGlow)' }],
+        ['path', { d: ray(cx, cy, len, 0.16), fill: '#fffdf2', 'fill-opacity': 0.9 }],
+        ['path', { d: ray(cx, cy, len * 0.4, 0.1), fill: '#fffdf2', 'fill-opacity': 0.55,
+                   transform: `rotate(45 ${cx.toFixed(2)} ${cy.toFixed(2)})` }],
+      ];
+      for (const [tag, attrs] of parts) {
+        const el = document.createElementNS(ns, tag);
+        for (const k in attrs) el.setAttribute(k, attrs[k]);
+        g.appendChild(el);
+      }
+      art.appendChild(g);
+    }
+    return;
+  }
+
   for (const [deg, dist, size, dur, delay] of SPARKS) {
     const a = deg * Math.PI / 180;
     const cx = 50 + Math.cos(a) * dist;
