@@ -128,6 +128,9 @@ export const TIERS = [
    - FLAT:  물결의 세로/가로 비율. 1이면 반원이다. 얕은 타원이라야 가지 끝으로 읽힌다. */
 export const BULGE = 1.6;
 export const FLAT = 0.55;
+/* 맨 바깥 물결이 옆선 방향으로 뻗는 길이(0~1). 1이면 옆선과 완전히 같은 길이로 밀어
+   날개처럼 길게 뻗는다. 줄여도 **방향**은 그대로라 꼭지점은 여전히 안 꺾인다. */
+export const TIP_REACH = 0.45;
 
 /** 기둥: 위끝은 맨 아래 가지 속에 묻히고, 아래끝은 바닥 눈 더미에 묻힌다 */
 export const TRUNK = { topY: 112, groundY: 134, half: 5 };
@@ -168,15 +171,30 @@ export function tierPath(t, dy = 0, flat = FLAT) {
      바늘처럼 뾰족한 각이 됐다 — 동그라미를 일직선에 붙여 놓은 꼴이라 "도형 같다".
      곡선이 수평으로 들어와 수평으로 나가면 이음매에 각이 아예 생기지 않는다.
      깊이는 그대로다(3차 곡선은 제어점 높이의 0.75만큼 내려가므로 4/3을 곱한다).
-     단, 맨 바깥 물결의 바깥쪽 끝만은 수직으로 세운다(제어점을 끝점 바로 위에 둔다).
-     거기서 수평으로 나가면 옆선과 만나 뾰족한 부리가 생긴다. 이때 깊이는 제어점
-     높이의 0.444배라 2.25를 곱한다. */
+
+     맨 바깥 물결의 바깥쪽 끝은 따로 잡는다. 거기서 옆 대각선과 밑단이 만나는데,
+     방향이 다르면 꼭지점이 꺾여 파워포인트 도형처럼 보인다. 그래서 **옆선이 내려오던
+     그 방향 그대로** 제어점을 둔다(`ux, uy`). 그러면 꺾이는 각이 0이 되어 대각선이
+     물결로 그냥 흘러 들어간다. 바깥 물결이 단 너비보다 1 남짓 바깥으로 나가며
+     끝이 아래로 처지는데, 실제 전나무 가지 끝이 그렇다. 거는 자리는 이보다 안쪽
+     (TREE.inset)이라 오너먼트가 비어져 나올 일은 없다.
+     방향만 맞추고 **미는 거리는 TIP_REACH로 줄인다**. 끝까지(1.0) 밀면 각은 없지만
+     바깥 물결이 박쥐 날개처럼 길게 뻗는다. 줄여도 방향은 그대로라 각은 여전히 0이다. */
+  const sl = Math.hypot(t.half / 2 - ox, h / 2 + oy);
+  const ux = (t.half / 2 - ox) / sl;      // 옆선이 밑단에 닿을 때의 방향(단위벡터)
+  const uy = (h / 2 + oy) / sl;
+  const a = TIP_REACH * 2.25 * ry;        // 바깥쪽 제어점을 그 방향으로 민 거리(세로분)
+  const ax = ((a / uy) * ux).toFixed(3);  // 같은 방향을 지키는 가로분
+  const ay = a.toFixed(3);
+  // 바깥 물결의 안쪽 제어점. 바깥쪽을 짧게 민 만큼 여기서 채워 깊이를 ry로 맞춘다.
+  const b = Math.max(0, ry * 8 / 3 - a).toFixed(3);
   const k = (ry * 4 / 3).toFixed(3);      // 가운데 물결의 제어점 높이
-  const e = (ry * 2.25).toFixed(3);       // 바깥쪽 끝의 제어점 높이
   const w = (rx * 2).toFixed(3);
   for (let i = 0; i < t.scallops; i++) {
-    const c1 = i === 0 ? `0 ${e}` : `${(rx * 2 / 3).toFixed(3)} ${k}`;
-    const c2 = i === t.scallops - 1 ? `${w} ${e}` : `${(rx * 4 / 3).toFixed(3)} ${k}`;
+    const first = i === 0, last = i === t.scallops - 1;
+    const c1 = first ? `-${ax} ${ay}` : `${(rx * 2 / 3).toFixed(3)} ${last ? b : k}`;
+    const c2 = last ? `${(rx * 2 + Number(ax)).toFixed(3)} ${ay}`
+                    : `${(rx * 4 / 3).toFixed(3)} ${first ? b : k}`;
     d += `c${c1} ${c2} ${w} 0`;
   }
   d += `Q${qrx} ${qy} ${cx} ${topY}`;

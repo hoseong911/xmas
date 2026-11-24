@@ -130,7 +130,7 @@ test('tierPath: 쓸 수 있는 path가 나온다', () => {
     assert.ok(d.endsWith('Z'));
     assert.ok(!/NaN|undefined/.test(d), d);
     // 물결 개수만큼 곡선이 들어 있다
-    assert.equal((d.match(/c[\d.]+ /g) || []).length, t.scallops);
+    assert.equal((d.match(/c-?[\d.]+ /g) || []).length, t.scallops);
   }
 });
 
