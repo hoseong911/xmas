@@ -242,8 +242,9 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
     return el;
   };
 
-  // ?art=paint(수채화), ?art=needle(침엽 질감)은 시안을 띄워 보는 주소다. 고르시면 기본으로 바꾼다.
-  const look = new URLSearchParams(location.search).get('art');
+  // 기본은 수채화(2026-11-24에 고르셨다). `?art=svg` 로 예전 민트 SVG 트리,
+  // `?art=needle` 로 접어 둔 침엽 시안을 띄워 볼 수 있다.
+  const look = new URLSearchParams(location.search).get('art') || 'paint';
   art.insertAdjacentHTML('beforeend', treeArtSVG({ needles: look === 'needle', paint: look === 'paint' }));
 
   /* 꼭대기 별.

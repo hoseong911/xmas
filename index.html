@@ -486,8 +486,9 @@ function drawPickTree() {
     art.appendChild(el);
   };
   // 전시 트리와 같은 그림이어야 고른 자리가 전시 화면에서도 같은 데로 보인다
-  // ?art=paint(수채화), ?art=needle(침엽 질감)은 시안. 전시 트리와 같이 켜야 두 화면이 같아 보인다.
-  const look = new URLSearchParams(location.search).get('art');
+  // 기본은 수채화(2026-11-24에 고르셨다). `?art=svg` 로 예전 민트 SVG 트리를 띄워 볼 수 있다.
+  // 전시 트리(tree.html)와 **같은 기본값**이라야 학생이 고른 자리가 전시 화면에서도 같아 보인다.
+  const look = new URLSearchParams(location.search).get('art') || 'paint';
   art.insertAdjacentHTML('beforeend', treeArtSVG({ needles: look === 'needle', paint: look === 'paint' }));
   if (look !== 'paint') add('path', { d: starPath(50, 11, 8.4, 3.5), fill: '#f7d479' });   // 수채화 시안은 별이 그림 안에 있다
 }
