@@ -268,11 +268,16 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
     [['0%', '#ffffff', '.95'], ['40%', '#fff3cf', '.35'], ['100%', '#ffe09a', '0']]);
   art.appendChild(defs);
 
-  add('circle', { id: 'starGlow', cx: 50, cy: STAR_Y, r: GLOW_R, fill: 'url(#xmStarGlow)' });
-  /* 가만히 있을 때는 금색으로 둔다. 거의 흰 별로 뒀더니 섬광이 터져도 더 밝아질
-     자리가 없어 아무 일도 안 일어난 것처럼 보였다. */
-  add('path', { d: starPath(50, STAR_Y, 8.4, 3.5), fill: '#edc05c' });
-  add('path', { d: starPath(50, STAR_Y - 0.5, 4.2, 1.8), fill: '#ffeaae', 'fill-opacity': 0.85 });
+  const glow = add('circle', { id: 'starGlow', cx: 50, cy: STAR_Y, r: GLOW_R, fill: 'url(#xmStarGlow)' });
+  if (look === 'paint') {
+    // 수채화 시안은 별을 그림 안에 칠해 두었다. 둘레 빛만 그림 뒤로 깔고 섬광은 위에 얹는다.
+    art.prepend(glow);
+  } else {
+    /* 가만히 있을 때는 금색으로 둔다. 거의 흰 별로 뒀더니 섬광이 터져도 더 밝아질
+       자리가 없어 아무 일도 안 일어난 것처럼 보였다. */
+    add('path', { d: starPath(50, STAR_Y, 8.4, 3.5), fill: '#edc05c' });
+    add('path', { d: starPath(50, STAR_Y - 0.5, 4.2, 1.8), fill: '#ffeaae', 'fill-opacity': 0.85 });
+  }
 
   /* ── 샹들리에 섬광 ───────────────────────────────────────────
      꼭지 다섯과 안쪽 네 군데에 작은 네 갈래 빛을 둔다. 길이와 시작을 모두 달리해

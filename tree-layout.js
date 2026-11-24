@@ -299,12 +299,10 @@ function sparklePath(x, y, r) {
 
 function paintedTreeSVG({ lights = true } = {}) {
   let defs = '', body = '';
-  // 바닥 눈(기둥 그림 밑에 깔린다)
-  body += `<ellipse cx="50" cy="${TRUNK.groundY + 1}" rx="44" ry="4.6" fill="#dceaf7" opacity=".09"/>`;
+  /* 기둥, 눈 더미, 꼭대기 별까지 그림 안에 칠해 두었다. 매끈한 도형으로 따로 그리면
+     수채화 트리 사이에서 도형만 튀어 보인다(2026-11-24 "도형의 집합 같다").
+     그래서 화면(tree.html, index.html)은 이 모드에서 별을 따로 그리지 않는다. */
   body += `<image href="${PAINT_IMG}" x="0" y="0" width="${TREE.vbW}" height="${TREE.vbH}"/>`;
-  // 기둥 밑을 덮는 눈 더미
-  body += `<ellipse cx="50" cy="${TRUNK.groundY}" rx="${TRUNK.half * 2.6}" ry="2.4" fill="#dceaf7" opacity=".42"/>`;
-  body += `<ellipse cx="48.5" cy="${TRUNK.groundY - 0.6}" rx="${TRUNK.half * 1.5}" ry="1.2" fill="#eef6fd" opacity=".3"/>`;
 
   if (lights) {
     defs += '<radialGradient id="xtGlow">'

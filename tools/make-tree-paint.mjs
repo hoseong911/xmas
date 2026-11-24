@@ -16,6 +16,7 @@ import { TIERS, tierPath, TRUNK, TREE } from '../tree-layout.js';
 const OUT = process.argv[2] || 'img/tree-paint.webp';
 const PAINT_FLAT = 0.78;
 const SCALE = 12;   // viewBox 1칸 = 12px  ->  1200 x 1680
+const STAR = { y: 11, ro: 8.4, ri: 3.5 };   // tree.html의 STAR_Y, starPath(50, 11, 8.4, 3.5)와 같은 자리
 
 const tiers = TIERS.map(t => ({
   d: tierPath(t, 0, PAINT_FLAT),
@@ -25,7 +26,7 @@ const tiers = TIERS.map(t => ({
 
 const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
 const page = await browser.newPage();
-const url = await page.evaluate(({ tiers, TRUNK, W, H, SCALE }) => {
+const url = await page.evaluate(({ tiers, TRUNK, STAR, W, H, SCALE }) => {
   let seed = 1224;
   const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
   const mk = () => { const c = document.createElement('canvas'); c.width = W * SCALE; c.height = H * SCALE; return c; };
@@ -61,18 +62,84 @@ const url = await page.evaluate(({ tiers, TRUNK, W, H, SCALE }) => {
     x.fillStyle = g;
     x.beginPath(); x.roundRect(x0, y0, w, h, 1.6); x.fill();
     x.globalCompositeOperation = 'source-atop';
-    x.strokeStyle = 'rgba(140, 100, 60, .45)';
-    x.lineWidth = 0.22;
-    for (let i = 0; i < 9; i++) {           // 나뭇결: 비스듬히 휘는 선
-      const yy = y0 + 4 + i * (h - 4) / 9 + rnd() * 1.2;
+    /* 나뭇결. 고른 간격의 물결선을 끝까지 그으면 수식으로 그린 티가 난다(첫 시안이 그랬다).
+       길이, 간격, 굵기, 진하기를 제각각으로 두고, 옹이 하나를 둥글게 감는다. */
+    x.lineCap = 'round';
+    let yy = y0 + 4.5;
+    while (yy < y0 + h - 1.5) {
+      const xs = x0 + rnd() * w * 0.45, xe = x0 + w * (0.55 + rnd() * 0.5);
+      x.strokeStyle = `rgba(125, 88, 52, ${(0.18 + rnd() * 0.32).toFixed(2)})`;
+      x.lineWidth = 0.14 + rnd() * 0.2;
       x.beginPath();
-      x.moveTo(x0 - 1, yy + rnd());
-      x.bezierCurveTo(x0 + w * 0.3, yy - 1.4 - rnd(), x0 + w * 0.6, yy + 1.6, x0 + w + 1, yy - 0.5 + rnd());
+      x.moveTo(xs, yy + rnd() * 0.6);
+      x.bezierCurveTo(xs + (xe - xs) * 0.35, yy - 0.9 - rnd(), xs + (xe - xs) * 0.7, yy + 0.4 + rnd(), xe, yy - 0.3 + rnd() * 0.6);
       x.stroke();
+      yy += 1.4 + rnd() * 2.6;
     }
+    x.strokeStyle = 'rgba(115, 80, 46, .38)';
+    x.lineWidth = 0.2;
+    for (const r of [0.55, 1.05, 1.5]) {
+      x.beginPath(); x.ellipse(x0 + w * 0.66, y0 + h * 0.52, r * 1.4, r, -0.2, 0.3, Math.PI * 1.85); x.stroke();
+    }
+    // 둥근 기둥처럼: 양옆을 조금 어둡게
+    const roll = x.createLinearGradient(x0, 0, x0 + w, 0);
+    roll.addColorStop(0, 'rgba(90,60,30,.22)'); roll.addColorStop(0.3, 'rgba(255,240,210,.12)');
+    roll.addColorStop(0.75, 'rgba(0,0,0,0)'); roll.addColorStop(1, 'rgba(60,35,15,.3)');
+    x.fillStyle = roll;
+    x.fillRect(x0, y0, w, h);
     x.setTransform(1, 0, 0, 1, 0, 0);
     grain(x, 14, 10);
     m.save(); m.setTransform(1, 0, 0, 1, 0, 0); m.filter = 'blur(0.8px)'; m.drawImage(c, 0, 0); m.restore();
+  }
+
+  /* ── 눈 더미 ──
+     예전 바닥은 반투명 타원 두 장이라 눈이 아니라 회색 접시로 보였다. 지금은 크기가 다른
+     둥근 덩이 여러 개를 겹쳐 울퉁불퉁하게 쌓고, 아래와 오른쪽에 푸른 그늘, 위에 흰 빛을 준다.
+     바닥에는 가장자리가 사라지는 옅은 눈빛만 깐다(선이 있으면 다시 접시가 된다). */
+  {
+    const GY = TRUNK.groundY;
+    const haze = m.createRadialGradient(50, GY + 1, 0, 50, GY + 1, 40);
+    haze.addColorStop(0, 'rgba(220, 236, 250, .20)');
+    haze.addColorStop(0.6, 'rgba(220, 236, 250, .07)');
+    haze.addColorStop(1, 'rgba(220, 236, 250, 0)');
+    m.save(); m.translate(50, GY + 1); m.scale(1, 0.13); m.translate(-50, -(GY + 1));
+    m.fillStyle = haze; m.beginPath(); m.arc(50, GY + 1, 40, 0, Math.PI * 2); m.fill();
+    m.restore();
+
+    const c = mk(), x = c.getContext('2d');
+    x.scale(SCALE, SCALE);
+    // [가운데 x, 가운데 y, 가로 반지름, 세로 반지름]
+    const LUMPS = [
+      // 바닥에 넓고 납작한 덩이를 먼저 깐다(덩이 사이로 뒤 건물이 비치지 않게)
+      [50, GY + 2.6, 23, 1.7],
+      [50, GY + 1.6, 13, 2.3], [42, GY + 1.0, 5.5, 2.1], [57.5, GY + 0.9, 6.2, 2.4],
+      [49, GY + 0.2, 5.2, 1.9], [34, GY + 2.3, 4.6, 1.4], [66, GY + 2.2, 5.0, 1.5],
+      [28, GY + 2.9, 3.0, 0.9], [72.5, GY + 2.9, 3.4, 1.0],
+    ];
+    const body = new Path2D();
+    // 타원마다 moveTo로 끊어야 한다. 안 끊으면 앞 타원 끝에서 선이 이어져 구멍이 뚫린다.
+    for (const [cx, cy, rx, ry] of LUMPS) { body.moveTo(cx + rx, cy); body.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); }
+    const g = x.createLinearGradient(0, GY - 3.5, 0, GY + 4.5);
+    g.addColorStop(0, '#f6fbff'); g.addColorStop(0.55, '#dbe9f7'); g.addColorStop(1, '#a9c0e2');
+    x.fillStyle = g;
+    x.fill(body);
+    x.globalCompositeOperation = 'source-atop';
+    // 덩이마다 아래 오른쪽 그늘, 위 왼쪽 빛
+    for (const [cx, cy, rx, ry] of LUMPS) {
+      const sh = x.createRadialGradient(cx + rx * 0.35, cy + ry * 0.7, 0, cx + rx * 0.35, cy + ry * 0.7, rx * 0.9);
+      sh.addColorStop(0, 'rgba(110, 140, 200, .34)'); sh.addColorStop(1, 'rgba(110, 140, 200, 0)');
+      x.fillStyle = sh; x.fillRect(cx - rx * 2, cy - ry * 2, rx * 4, ry * 4);
+      const hi = x.createRadialGradient(cx - rx * 0.3, cy - ry * 0.55, 0, cx - rx * 0.3, cy - ry * 0.55, rx * 0.6);
+      hi.addColorStop(0, 'rgba(255, 255, 255, .55)'); hi.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      x.fillStyle = hi; x.fillRect(cx - rx * 2, cy - ry * 2, rx * 4, ry * 4);
+    }
+    // 트리가 눈 위에 드리운 그늘
+    const ts = x.createRadialGradient(50, GY - 1.5, 0, 50, GY - 1.5, 13);
+    ts.addColorStop(0, 'rgba(60, 90, 170, .30)'); ts.addColorStop(1, 'rgba(60, 90, 170, 0)');
+    x.fillStyle = ts; x.fillRect(30, GY - 8, 40, 14);
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    grain(x, 10, 8);
+    m.save(); m.setTransform(1, 0, 0, 1, 0, 0); m.filter = 'blur(1.2px)'; m.drawImage(c, 0, 0); m.restore();
   }
 
   /* ── 가지: 아래 단부터. 위 단이 아래 단 위로 물결진 밑자락을 덮는다 ── */
@@ -145,8 +212,52 @@ const url = await page.evaluate(({ tiers, TRUNK, W, H, SCALE }) => {
     m.save(); m.setTransform(1, 0, 0, 1, 0, 0); m.filter = 'blur(1.1px)'; m.drawImage(c, 0, 0); m.restore();
   }
 
+  /* ── 꼭대기 별 ──
+     예전 별은 금색 별 위에 연한 별을 겹친 두 겹이라 클립아트 같았다. 참고 그림처럼
+     꼭지를 둥글게 하고, 가운데에서 꼭지로 가는 능선을 따라 열 개의 면을 밝고 어둡게
+     나눠 도톰한 입체로 칠한다. 빛은 왼쪽 위에서 온다.
+     반짝이는 섬광과 둘레 빛은 화면(tree.html)이 이 위에 따로 얹는다. */
+  {
+    const CX = 50, CY = STAR.y, RO = STAR.ro, RI = STAR.ri;
+    const c = mk(), x = c.getContext('2d');
+    x.scale(SCALE, SCALE);
+    const pt = (k, r) => { const a = (-90 + k * 36) * Math.PI / 180; return [CX + r * Math.cos(a), CY + r * Math.sin(a)]; };
+    const outline = new Path2D();
+    for (let k = 0; k < 10; k++) {
+      const [px, py] = pt(k, k % 2 ? RI : RO * 0.93);
+      k ? outline.lineTo(px, py) : outline.moveTo(px, py);
+    }
+    outline.closePath();
+    // 둥근 꼭지: 같은 별을 굵은 둥근 선으로 한 번 더 그어 부풀린다
+    x.fillStyle = '#f2b93b'; x.strokeStyle = '#f2b93b';
+    x.lineJoin = 'round'; x.lineWidth = 1.5;
+    x.fill(outline); x.stroke(outline);
+    x.globalCompositeOperation = 'source-atop';
+    const LIGHT = Math.atan2(-1, -0.7);   // 왼쪽 위
+    for (let k = 0; k < 10; k++) {
+      const [ax, ay] = pt(k, k % 2 ? RI : RO * 1.2);
+      const [bx, by] = pt(k + 1, (k + 1) % 2 ? RI : RO * 1.2);
+      const mid = Math.atan2((ay + by) / 2 - CY, (ax + bx) / 2 - CX);
+      const lit = Math.cos(mid - LIGHT);             // 1이면 빛을 정면으로 받는 면
+      x.fillStyle = lit > 0
+        ? `rgba(255, 238, 170, ${(0.15 + lit * 0.55).toFixed(2)})`
+        : `rgba(176, 104, 18, ${(0.12 - lit * 0.42).toFixed(2)})`;
+      x.beginPath(); x.moveTo(CX, CY); x.lineTo(ax, ay); x.lineTo(bx, by); x.closePath(); x.fill();
+    }
+    // 가운데 둥근 빛과 테두리 쪽 따뜻한 그늘
+    const hi = x.createRadialGradient(CX - 1.6, CY - 2, 0, CX - 1.6, CY - 2, 4.5);
+    hi.addColorStop(0, 'rgba(255, 252, 230, .7)'); hi.addColorStop(1, 'rgba(255, 252, 230, 0)');
+    x.fillStyle = hi; x.fillRect(CX - 10, CY - 10, 20, 20);
+    x.save(); x.filter = `blur(${SCALE * 0.35}px)`;
+    x.strokeStyle = 'rgba(190, 110, 20, .45)'; x.lineWidth = 0.9; x.lineJoin = 'round';
+    x.stroke(outline); x.restore();
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    grain(x, 12, 8);
+    m.save(); m.setTransform(1, 0, 0, 1, 0, 0); m.filter = 'blur(0.7px)'; m.drawImage(c, 0, 0); m.restore();
+  }
+
   return main.toDataURL('image/webp', 0.86);
-}, { tiers, TRUNK, W: TREE.vbW, H: TREE.vbH, SCALE });
+}, { tiers, TRUNK, STAR, W: TREE.vbW, H: TREE.vbH, SCALE });
 await browser.close();
 
 fs.writeFileSync(OUT, Buffer.from(url.split(',')[1], 'base64'));

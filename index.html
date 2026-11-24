@@ -489,7 +489,7 @@ function drawPickTree() {
   // ?art=paint(수채화), ?art=needle(침엽 질감)은 시안. 전시 트리와 같이 켜야 두 화면이 같아 보인다.
   const look = new URLSearchParams(location.search).get('art');
   art.insertAdjacentHTML('beforeend', treeArtSVG({ needles: look === 'needle', paint: look === 'paint' }));
-  add('path', { d: starPath(50, 11, 8.4, 3.5), fill: '#f7d479' });
+  if (look !== 'paint') add('path', { d: starPath(50, 11, 8.4, 3.5), fill: '#f7d479' });   // 수채화 시안은 별이 그림 안에 있다
 }
 
 /** 이미 걸린 것들을 트리에 깔아 둔다(빈자리를 눈으로 찾게) */
