@@ -1,0 +1,454 @@
+<title>감사편지 트리 운영 순서</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 레이아웃: 위에서 한 장 그림(누가 언제 무엇을), 아래로 단계별 할 일, 데이터 흐름, 문제 대처, 주소 모음 */
+:root {
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --band: #e9edf4;
+  --ink: #16213a;
+  --muted: #59657e;
+  --line: #d3d9e5;
+  --gold: #9c6f12;
+  --gold-soft: #f7ecd2;
+  --mint: #1d8570;
+  --sky: #2c69ae;
+  --rose: #b0435b;
+  --f-display: "Gowun Batang", "Batang", serif;
+  --f-body: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1424; --surface: #13203a; --band: #0f1a30; --ink: #e8edf7; --muted: #9ba8c1;
+    --line: #2a3a58; --gold: #e9c062; --gold-soft: #3a311d; --mint: #5ccfb3; --sky: #80b3f1; --rose: #f08ba1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1424; --surface: #13203a; --band: #0f1a30; --ink: #e8edf7; --muted: #9ba8c1;
+  --line: #2a3a58; --gold: #e9c062; --gold-soft: #3a311d; --mint: #5ccfb3; --sky: #80b3f1; --rose: #f08ba1;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.7;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 56px }
+header { display: grid; gap: 10px; max-width: 46rem }
+.eyebrow { font-size: 12px; letter-spacing: .14em; color: var(--gold); font-weight: 700 }
+h1, h2 { font-family: var(--f-display); font-weight: 700; text-wrap: balance; margin: 0; line-height: 1.3 }
+h1 { font-size: clamp(28px, 5vw, 40px) }
+h2 { font-size: 24px }
+h3 { font-size: 16px; margin: 0 }
+p { margin: 0 }
+.lead { color: var(--muted); font-size: 16px }
+section { display: grid; gap: 18px; min-width: 0 }
+.sec-head { display: grid; gap: 6px; max-width: 46rem }
+.sec-head p { color: var(--muted) }
+code, .mono { font-family: var(--f-mono); font-size: .88em }
+
+figure { margin: 0; display: grid; gap: 12px; min-width: 0 }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px }
+.scroll svg { display: block; width: 100%; min-width: 860px; height: auto; color: var(--muted) }
+figcaption { color: var(--muted); font-size: 14px; max-width: 46rem }
+
+/* 그림 안의 색 */
+.t-strong { fill: var(--ink); font-weight: 700; font-size: 13px }
+.t-sub { fill: var(--muted); font-size: 11.5px }
+.t-col { fill: var(--ink); font-weight: 700; font-size: 14px }
+.t-lane { font-weight: 700; font-size: 14px }
+.t-file { fill: var(--muted); font-size: 11px; font-family: var(--f-mono) }
+.t-arrow { fill: var(--ink); font-size: 11.5px; font-weight: 500 }
+.band { fill: var(--band) }
+.sep { stroke: var(--line); stroke-dasharray: 4 5 }
+.box { fill: var(--surface); stroke-width: 1.5 }
+.box.prep { stroke-dasharray: 5 4 }
+.box.key { fill: var(--gold-soft); stroke: var(--gold); stroke-width: 2 }
+.c-admin { stroke: var(--gold) } .f-admin { fill: var(--gold) }
+.c-student { stroke: var(--mint) } .f-student { fill: var(--mint) }
+.c-tv { stroke: var(--sky) } .f-tv { fill: var(--sky) }
+.c-teacher { stroke: var(--rose) } .f-teacher { fill: var(--rose) }
+.arrow { stroke: currentColor; stroke-width: 1.6; fill: none }
+.lock { fill: var(--gold); font-size: 11.5px; font-weight: 700 }
+.open { fill: var(--mint); font-size: 11.5px; font-weight: 700 }
+
+/* 단계 카드 */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px }
+.step { display: grid; grid-template-columns: 52px 1fr; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px }
+.num { font-family: var(--f-display); font-size: 30px; line-height: 1; color: var(--gold) }
+.step-body { display: grid; gap: 10px; min-width: 0 }
+.step-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px }
+.who { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; border: 1px solid currentColor }
+.chip.admin { color: var(--gold) } .chip.student { color: var(--mint) } .chip.tv { color: var(--sky) } .chip.teacher { color: var(--rose) }
+.step ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px }
+.step li::marker { color: var(--muted) }
+.btn { font-weight: 700; white-space: nowrap }
+.btn::before { content: "["; color: var(--muted); font-weight: 400 }
+.btn::after { content: "]"; color: var(--muted); font-weight: 400 }
+.warn { color: var(--rose); font-weight: 700 }
+
+/* 문제 대처 */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; min-width: 600px }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-bottom: 1px solid var(--line) }
+tr:last-child td { border-bottom: 0 }
+th { font-size: 12px; letter-spacing: .08em; color: var(--muted); font-weight: 700; background: var(--band) }
+td:first-child { font-weight: 700; width: 36% }
+
+/* 주소 */
+.urls { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px }
+.url { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; min-width: 0 }
+.url-top { display: flex; justify-content: space-between; align-items: center; gap: 10px }
+.url-top b { font-size: 15px }
+.url .addr { font-family: var(--f-mono); font-size: 13px; color: var(--sky); overflow-wrap: anywhere; user-select: all }
+.url p { color: var(--muted); font-size: 13.5px }
+.copy { font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink); background: var(--band); border: 1px solid var(--line); border-radius: 8px; padding: 3px 10px; cursor: pointer }
+.copy:hover { border-color: var(--gold) }
+.copy:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px }
+
+@media (max-width: 560px) {
+  .step { grid-template-columns: 1fr; gap: 8px; padding: 18px }
+  .num { font-size: 24px }
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">내 트리를 꾸며줘!</div>
+  <h1>감사편지 트리 운영 순서</h1>
+  <p class="lead">축제 준비부터 선생님이 편지를 여는 날, 그리고 편지를 보관하고 비우는 날까지. 누가 어느 화면에서 무엇을 하는지 한 장에 모았습니다.</p>
+</header>
+
+<section aria-labelledby="h-map">
+  <div class="sec-head">
+    <h2 id="h-map">한눈에 보기</h2>
+    <p>가로는 시간, 세로는 사람과 기기입니다. 점선 상자는 미리 띄워 두는 화면입니다.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+      <svg viewBox="0 0 1110 546" role="img" aria-label="관리자가 명단을 올리고 번호를 선생님께 전달한 뒤, 축제 당일 학생이 쓴 편지가 트리에 바로 걸리고, 선생님은 공개일 전에는 개수만 보다가 공개일에 편지를 엽니다. 선생님들이 다 읽은 뒤에 관리자가 편지를 엑셀로 받고 초기화합니다.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- 줄 바탕 -->
+        <rect class="band" x="0" y="56" width="1110" height="120"/>
+        <rect class="band" x="0" y="296" width="1110" height="120"/>
+
+        <!-- 단계 구분선 -->
+        <line class="sep" x1="324" y1="8" x2="324" y2="536"/>
+        <line class="sep" x1="518" y1="8" x2="518" y2="536"/>
+        <line class="sep" x1="712" y1="8" x2="712" y2="536"/>
+        <line class="sep" x1="906" y1="8" x2="906" y2="536"/>
+
+        <!-- 단계 머리 -->
+        <text class="t-col" x="227" y="24" text-anchor="middle">축제 전</text>
+        <text class="t-sub" x="227" y="42" text-anchor="middle">관리자가 준비</text>
+        <text class="t-col" x="421" y="24" text-anchor="middle">축제 당일</text>
+        <text class="t-sub" x="421" y="42" text-anchor="middle">부스 운영</text>
+        <text class="t-col" x="615" y="24" text-anchor="middle">공개일 전</text>
+        <text class="t-sub" x="615" y="42" text-anchor="middle">편지 개수만 보임</text>
+        <text class="t-col" x="809" y="24" text-anchor="middle">공개일</text>
+        <text class="t-sub" x="809" y="42" text-anchor="middle">한국 시간 0시부터</text>
+        <text class="t-col" x="1008" y="24" text-anchor="middle">끝난 뒤</text>
+        <text class="t-sub" x="1008" y="42" text-anchor="middle">보관하고 비우기</text>
+
+        <!-- 줄 이름 -->
+        <text class="t-lane f-admin" x="14" y="112">관리자</text>
+        <text class="t-file" x="14" y="130">admin.html</text>
+        <text class="t-lane f-student" x="14" y="232">학생</text>
+        <text class="t-file" x="14" y="250">index.html</text>
+        <text class="t-lane f-tv" x="14" y="352">전시 TV</text>
+        <text class="t-file" x="14" y="370">tree.html</text>
+        <text class="t-lane f-teacher" x="14" y="472">선생님</text>
+        <text class="t-file" x="14" y="490">teacher.html</text>
+
+        <!-- 축제 전 -->
+        <rect class="box c-admin" x="142" y="88" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="227" y="112" text-anchor="middle">명단 올리고 번호 발급</text>
+        <text class="t-sub" x="227" y="131" text-anchor="middle">공개일, 글자 수 저장</text>
+
+        <rect class="box prep c-student" x="174" y="208" width="138" height="56" rx="8"/>
+        <text class="t-strong" x="243" y="232" text-anchor="middle">태블릿에</text>
+        <text class="t-sub" x="243" y="251" text-anchor="middle">학생 화면 열기</text>
+
+        <rect class="box prep c-tv" x="174" y="328" width="138" height="56" rx="8"/>
+        <text class="t-strong" x="243" y="352" text-anchor="middle">TV에</text>
+        <text class="t-sub" x="243" y="371" text-anchor="middle">가까이 보기 열기</text>
+
+        <rect class="box c-teacher" x="142" y="448" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="227" y="472" text-anchor="middle">확인 번호 받기</text>
+        <text class="t-sub" x="227" y="491" text-anchor="middle">네 자리 숫자</text>
+
+        <line class="arrow" x1="156" y1="144" x2="156" y2="446" marker-end="url(#ah)"/>
+        <text class="t-arrow" transform="translate(150 296) rotate(-90)" text-anchor="middle">번호 전달</text>
+
+        <!-- 축제 당일 -->
+        <rect class="box c-admin" x="336" y="88" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="421" y="112" text-anchor="middle">편지 받기 켜고 끄기</text>
+        <text class="t-sub" x="421" y="131" text-anchor="middle">이상한 편지는 숨김</text>
+
+        <line class="arrow" x1="421" y1="144" x2="421" y2="206" marker-end="url(#ah)"/>
+        <text class="t-arrow" x="429" y="180">받는 중, 멈춤</text>
+
+        <rect class="box c-student" x="336" y="208" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="421" y="232" text-anchor="middle">학번 이름, 선생님</text>
+        <text class="t-sub" x="421" y="251" text-anchor="middle">편지, 장식, 자리 고르기</text>
+
+        <line class="arrow" x1="421" y1="264" x2="421" y2="326" marker-end="url(#ah)"/>
+        <text class="t-arrow" x="429" y="300">여기에 달기</text>
+
+        <rect class="box c-tv" x="336" y="328" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="421" y="352" text-anchor="middle">트리에 바로 걸림</text>
+        <text class="t-sub" x="421" y="371" text-anchor="middle">가까이 보면 학번, 이름</text>
+
+        <!-- 공개일 전 -->
+        <line class="arrow" x1="506" y1="250" x2="582" y2="446" marker-end="url(#ah)"/>
+        <text class="t-arrow" x="556" y="318">편지가 쌓임</text>
+
+        <rect class="box c-teacher" x="530" y="448" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="615" y="472" text-anchor="middle">N통 도착, 여는 날 안내</text>
+        <text class="t-sub" x="615" y="491" text-anchor="middle">트리에서 내 편지 빛남</text>
+
+        <line class="arrow" x1="700" y1="476" x2="722" y2="476" marker-end="url(#ah)"/>
+
+        <!-- 공개일 -->
+        <rect class="box key" x="724" y="448" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="809" y="472" text-anchor="middle">편지 열기</text>
+        <text class="t-sub" x="809" y="491" text-anchor="middle">내 앞으로 온 편지만</text>
+
+        <line class="arrow" x1="894" y1="476" x2="921" y2="476" marker-end="url(#ah)"/>
+
+        <!-- 끝난 뒤 -->
+        <rect class="box prep c-teacher" x="923" y="448" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="1008" y="472" text-anchor="middle">다 읽었는지</text>
+        <text class="t-sub" x="1008" y="491" text-anchor="middle">선생님들께 확인</text>
+
+        <line class="arrow" x1="1008" y1="448" x2="1008" y2="146" marker-end="url(#ah)"/>
+        <text class="t-arrow" x="1016" y="300">다 읽은 뒤에</text>
+
+        <rect class="box c-admin" x="923" y="88" width="170" height="56" rx="8"/>
+        <text class="t-strong" x="1008" y="112" text-anchor="middle">편지 엑셀로 받기</text>
+        <text class="t-sub" x="1008" y="131" text-anchor="middle">그다음 편지 초기화</text>
+      </svg>
+    </div>
+    <figcaption>순서에서 꼭 지킬 것은 두 가지입니다. 번호는 축제 전에 선생님께 가 있어야 하고, 초기화는 선생님들이 다 읽은 뒤에 합니다. 초기화하면 선생님 화면에서도 편지가 사라집니다.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="h-steps">
+  <div class="sec-head">
+    <h2 id="h-steps">단계별 할 일</h2>
+    <p>대괄호는 화면에 있는 단추 이름 그대로입니다.</p>
+  </div>
+  <ol class="steps">
+    <li class="step">
+      <div class="num">1</div>
+      <div class="step-body">
+        <div class="step-top"><h3>축제 전 준비</h3><div class="who"><span class="chip admin">관리자</span></div></div>
+        <ul>
+          <li>어드민에 이메일과 비밀번호로 들어갑니다. 로그인을 기억하지 않으므로 새로고침하면 다시 칩니다.</li>
+          <li>TEACHER 탭 <span class="btn">엑셀로 올리기</span>. 이름, 담당, 번호 칸만 있으면 제목은 아무렇게나 적어도 됩니다. 번호는 숫자 뒤 네 자리만 쓰고, 비워 두면 겹치지 않게 만들어 줍니다. 줄마다 어떻게 될지 먼저 보여 주니 확인하고 <span class="btn">이 목록으로 올리기</span>.</li>
+          <li><span class="btn">번호 목록 복사</span>로 선생님마다 네 자리 번호를 따로 보내 드립니다.</li>
+          <li>SETTING 탭에서 제목, 안내 문구, 글자 수(처음 값은 20자에서 400자), <b>편지 공개일</b>을 정하고 <span class="btn">저장하기</span>. 공개일을 비우면 바로 열립니다.</li>
+          <li>시험 삼아 쓴 편지가 남아 있으면 <span class="btn">편지 엑셀로 받기</span> 뒤 편지 초기화로 비웁니다.</li>
+          <li>꽉 찬 트리가 어떻게 보일지는 <code>tree.html?demo=160</code>으로 미리 봅니다. 가짜 데이터라 아무것도 저장되지 않습니다.</li>
+        </ul>
+      </div>
+    </li>
+    <li class="step">
+      <div class="num">2</div>
+      <div class="step-body">
+        <div class="step-top"><h3>축제 당일</h3><div class="who"><span class="chip admin">관리자</span><span class="chip student">학생</span><span class="chip tv">전시 TV</span></div></div>
+        <ul>
+          <li>SETTING 탭 편지 받기를 <span class="btn">받는 중</span>으로 둡니다. 부스 태블릿에는 학생 화면, TV에는 <code>tree.html?view=zoom</code>을 띄웁니다.</li>
+          <li>학생은 학번과 이름, 선생님, 편지, 오너먼트, 자리 순서로 고르고 <span class="btn">여기에 달기</span>. 자리를 못 정하면 <span class="btn">아무 데나</span>.</li>
+          <li>공용 태블릿이라 아무것도 남지 않습니다. 다 달면 첫 화면으로 돌아가고, 2분 30초 동안 손대지 않으면 한 번 묻고 15초 뒤 지웁니다.</li>
+          <li>TV 트리에는 달자마자 걸립니다. 가까이 보기에서만 오너먼트 위에 학번과 이름이 뜨고, 받는 선생님은 어디에도 뜨지 않습니다.</li>
+          <li>관리자는 LETTER 탭을 <span class="btn">새로고침</span>해 가며 봅니다. 이상한 편지는 <span class="btn">숨김</span>을 누르면 트리에서 바로 내려갑니다. 욕설은 쓸 때 이미 걸러집니다.</li>
+          <li>부스를 닫을 때 편지 받기를 <span class="btn">멈춤</span>으로. 태블릿에 쓰던 내용도 같이 지워집니다.</li>
+        </ul>
+      </div>
+    </li>
+    <li class="step">
+      <div class="num">3</div>
+      <div class="step-body">
+        <div class="step-top"><h3>공개일 전</h3><div class="who"><span class="chip teacher">선생님</span></div></div>
+        <ul>
+          <li>선생님은 폰으로 선생님 화면을 열고 성함을 고른 뒤 확인 번호를 넣습니다.</li>
+          <li>“N통의 편지가 도착했어요”와 여는 날만 보이고 내용은 아직 오지 않습니다. <span class="btn">트리에서 내 편지 보기</span>를 누르면 자기 앞으로 온 오너먼트가 빛납니다.</li>
+          <li>번호를 8번 틀리면 10분 동안 잠깁니다.</li>
+        </ul>
+      </div>
+    </li>
+    <li class="step">
+      <div class="num">4</div>
+      <div class="step-body">
+        <div class="step-top"><h3>공개일</h3><div class="who"><span class="chip teacher">선생님</span></div></div>
+        <ul>
+          <li>공개일 한국 시간 0시부터 같은 화면에서 <span class="btn">편지 열기</span>가 됩니다. 다른 선생님 앞으로 온 편지는 받지 않습니다.</li>
+          <li>관리자가 따로 할 일은 없습니다. 날짜가 되면 저절로 열립니다.</li>
+        </ul>
+      </div>
+    </li>
+    <li class="step">
+      <div class="num">5</div>
+      <div class="step-body">
+        <div class="step-top"><h3>끝난 뒤</h3><div class="who"><span class="chip teacher">선생님</span><span class="chip admin">관리자</span></div></div>
+        <ul>
+          <li>선생님들이 다 읽으셨는지 먼저 확인합니다. <span class="warn">초기화하면 선생님 화면에서도 더는 읽을 수 없습니다.</span></li>
+          <li>SETTING 탭 <span class="btn">편지 엑셀로 받기</span>로 보관합니다. 보낸 시각, 학번, 이름, 받는 분, 내용이 담깁니다.</li>
+          <li>칸에 “초기화”라고 적어야 <span class="btn">모두 지우기</span>가 켜집니다. 몇 통인지 한 번 더 보여 주고 지웁니다. 도중에 끊기면 다시 누르면 남은 것을 마저 지웁니다.</li>
+          <li>선생님 명단, 번호, 설정은 남으니 다음 해에 그대로 씁니다. 공개일만 새로 정하면 됩니다.</li>
+        </ul>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section aria-labelledby="h-flow">
+  <div class="sec-head">
+    <h2 id="h-flow">편지는 어디로 가나</h2>
+    <p>선생님이 왜 번호를 넣어야 하는지, 트리에는 왜 받는 분이 안 뜨는지가 이 그림에 있습니다.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+      <svg viewBox="0 0 960 290" role="img" aria-label="학생 태블릿이 편지와 오너먼트를 같은 번호로 함께 저장합니다. 편지는 관리자만 읽고, 선생님은 확인 함수에 번호를 보내 자기 편지만 받습니다. 오너먼트는 누구나 읽어 전시 TV가 실시간으로 그립니다.">
+        <defs>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <rect class="box c-admin" x="20" y="40" width="150" height="64" rx="8"/>
+        <text class="t-strong" x="95" y="68" text-anchor="middle">어드민</text>
+        <text class="t-sub" x="95" y="88" text-anchor="middle">관리자 로그인</text>
+
+        <rect class="box c-student" x="20" y="196" width="150" height="64" rx="8"/>
+        <text class="t-strong" x="95" y="224" text-anchor="middle">학생 태블릿</text>
+        <text class="t-sub" x="95" y="244" text-anchor="middle">로그인 없음</text>
+
+        <rect class="box key" x="330" y="30" width="230" height="84" rx="8"/>
+        <text class="t-strong" x="445" y="56" text-anchor="middle">편지</text>
+        <text class="t-sub" x="445" y="76" text-anchor="middle">학번, 이름, 받는 분, 내용</text>
+        <text class="lock" x="445" y="98" text-anchor="middle">관리자만 읽음</text>
+
+        <rect class="box c-tv" x="330" y="186" width="230" height="84" rx="8"/>
+        <text class="t-strong" x="445" y="212" text-anchor="middle">오너먼트</text>
+        <text class="t-sub" x="445" y="232" text-anchor="middle">장식, 자리, 학번, 이름</text>
+        <text class="open" x="445" y="254" text-anchor="middle">누구나 읽음, 받는 분 없음</text>
+
+        <rect class="box c-teacher" x="620" y="40" width="130" height="64" rx="8"/>
+        <text class="t-strong" x="685" y="68" text-anchor="middle">확인 함수</text>
+        <text class="t-sub" x="685" y="88" text-anchor="middle">번호, 공개일 확인</text>
+
+        <rect class="box c-teacher" x="840" y="40" width="100" height="64" rx="8"/>
+        <text class="t-strong" x="890" y="77" text-anchor="middle">선생님 폰</text>
+
+        <rect class="box c-tv" x="840" y="196" width="100" height="64" rx="8"/>
+        <text class="t-strong" x="890" y="233" text-anchor="middle">전시 TV</text>
+
+        <line class="arrow" x1="170" y1="72" x2="328" y2="72" marker-start="url(#ah2)" marker-end="url(#ah2)"/>
+        <text class="t-arrow" x="249" y="62" text-anchor="middle">읽기, 숨기기</text>
+
+        <line class="arrow" x1="170" y1="214" x2="328" y2="100" marker-end="url(#ah2)"/>
+        <text class="t-arrow" x="224" y="150" text-anchor="middle">같은 번호로</text>
+
+        <line class="arrow" x1="170" y1="228" x2="328" y2="228" marker-end="url(#ah2)"/>
+        <text class="t-arrow" x="249" y="220" text-anchor="middle">함께 저장</text>
+
+        <line class="arrow" x1="560" y1="72" x2="618" y2="72" marker-end="url(#ah2)"/>
+        <text class="t-arrow" x="589" y="62" text-anchor="middle">꺼냄</text>
+
+        <line class="arrow" x1="838" y1="62" x2="752" y2="62" marker-end="url(#ah2)"/>
+        <text class="t-arrow" x="795" y="54" text-anchor="middle">이름, 번호</text>
+        <line class="arrow" x1="752" y1="86" x2="838" y2="86" marker-end="url(#ah2)"/>
+        <text class="t-arrow" x="795" y="102" text-anchor="middle">내 편지만</text>
+
+        <line class="arrow" x1="560" y1="228" x2="838" y2="228" marker-end="url(#ah2)"/>
+        <text class="t-arrow" x="699" y="220" text-anchor="middle">실시간으로 그림</text>
+      </svg>
+    </div>
+    <figcaption>학생도 선생님도 로그인하지 않기 때문에, 편지 내용은 처음부터 관리자만 읽게 막아 두었습니다. 선생님은 확인 함수에 번호를 보내야 자기 편지만 받고, 공개일 전에는 개수만 받습니다. 트리가 보는 오너먼트에는 받는 분이 없어서 누가 누구에게 썼는지는 드러나지 않습니다.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="h-trouble">
+  <div class="sec-head">
+    <h2 id="h-trouble">이럴 때는</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">생긴 일</th><th scope="col">까닭과 할 일</th></tr></thead>
+      <tbody>
+        <tr><td>학생 화면에 “지금은 편지를 받지 않아요”</td><td>SETTING 탭 편지 받기가 멈춤입니다. <span class="btn">받는 중</span>으로 바꿉니다.</td></tr>
+        <tr><td>학생이 찾는 선생님이 없다</td><td>명단에 안 들어간 분입니다. TEACHER 탭 <span class="btn">선생님 추가</span>로 넣고 번호를 알려 드립니다.</td></tr>
+        <tr><td>선생님이 편지를 못 연다</td><td>공개일 전이면 개수만 보이는 것이 맞습니다. SETTING 탭의 편지 공개일을 확인합니다.</td></tr>
+        <tr><td>선생님이 번호를 잊었다, 여러 번 틀렸다</td><td>TEACHER 탭 <span class="btn">번호 보기</span>로 알려 드립니다. 8번 틀렸으면 10분 뒤에 다시 됩니다.</td></tr>
+        <tr><td>어떤 선생님 편지가 사라진 것 같다</td><td>명단에서 지웠거나 엑셀로 다시 올려 선생님이 새로 만들어진 경우입니다. LETTER 탭 <span class="btn">선생님별로 보기</span>에서 “(명단에 없음)”으로 찾을 수 있습니다.</td></tr>
+        <tr><td>트리에 이상한 편지가 걸렸다</td><td>LETTER 탭에서 <span class="btn">숨김</span>. 트리에서 바로 내려가고, 편지는 남아 있어 되돌릴 수 있습니다.</td></tr>
+        <tr><td>학생이 쓰다 말고 자리를 떴다</td><td>2분 30초 뒤 저절로 묻고 15초 뒤 지웁니다. 바로 비우려면 <span class="btn">처음으로</span>.</td></tr>
+        <tr><td>어드민을 새로고침했더니 로그아웃됐다</td><td>일부러 그렇게 만들었습니다. 매번 이메일과 비밀번호를 칩니다.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="h-urls">
+  <div class="sec-head">
+    <h2 id="h-urls">주소 모음</h2>
+  </div>
+  <div class="urls">
+    <div class="url">
+      <div class="url-top"><b>학생 화면</b><button class="copy" type="button" data-copy="https://hoseong911.github.io/xmas/">복사</button></div>
+      <div class="addr">https://hoseong911.github.io/xmas/</div>
+      <p>부스 태블릿</p>
+    </div>
+    <div class="url">
+      <div class="url-top"><b>전시 트리, 가까이 보기</b><button class="copy" type="button" data-copy="https://hoseong911.github.io/xmas/tree.html?view=zoom">복사</button></div>
+      <div class="addr">https://hoseong911.github.io/xmas/tree.html?view=zoom</div>
+      <p>TV, 빔. 전체 보기는 끝의 <code>?view=zoom</code>을 뺍니다.</p>
+    </div>
+    <div class="url">
+      <div class="url-top"><b>선생님 화면</b><button class="copy" type="button" data-copy="https://hoseong911.github.io/xmas/teacher.html">복사</button></div>
+      <div class="addr">https://hoseong911.github.io/xmas/teacher.html</div>
+      <p>선생님 각자 폰. 번호와 함께 보내 드립니다.</p>
+    </div>
+    <div class="url">
+      <div class="url-top"><b>관리자</b><button class="copy" type="button" data-copy="https://hoseong911.github.io/xmas/admin.html">복사</button></div>
+      <div class="addr">https://hoseong911.github.io/xmas/admin.html</div>
+      <p>명단, 번호, 설정, 편지 확인</p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var text = b.dataset.copy;
+    var done = function () { b.textContent = '복사됨'; setTimeout(function () { b.textContent = '복사'; }, 1500); };
+    var fallback = function () {
+      var addr = b.closest('.url').querySelector('.addr');
+      var r = document.createRange(); r.selectNodeContents(addr);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      b.textContent = '선택됨';
+      setTimeout(function () { b.textContent = '복사'; }, 1500);
+    };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  });
+});
+</script>
