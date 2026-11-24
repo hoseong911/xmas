@@ -242,10 +242,9 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
     return el;
   };
 
-  // 기본은 수채화(2026-11-24에 고르셨다). `?art=svg` 로 예전 민트 SVG 트리,
-  // `?art=needle` 로 접어 둔 침엽 시안을 띄워 볼 수 있다.
+  // 기본은 수채화(2026-11-24에 고르셨다). `?art=svg` 로 예전 민트 SVG 트리를 띄워 볼 수 있다.
   const look = new URLSearchParams(location.search).get('art') || 'paint';
-  art.insertAdjacentHTML('beforeend', treeArtSVG({ needles: look === 'needle', paint: look === 'paint' }));
+  art.insertAdjacentHTML('beforeend', treeArtSVG({ paint: look === 'paint' }));
 
   /* 꼭대기 별.
      바깥에 옅은 별을 한 겹 더 까는 방식은 버렸다 — 어두운 밤하늘 위에서

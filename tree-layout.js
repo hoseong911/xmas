@@ -216,26 +216,15 @@ export function tierPath(t, dy = 0, flat = FLAT) {
  *   보인다. 알은 작게 둔다(크게 두면 진주 목걸이가 된다).
  * - id는 트리가 화면에 하나뿐이라 써도 된다(오너먼트와 다르다). 그래도 `xt` 접두사를 붙인다.
  *
- * @param {{lights?: boolean, needles?: boolean}} opt
+ * @param {{lights?: boolean, paint?: boolean}} opt
  *   lights: 전구 줄을 그릴지
- *   needles: 시안 ②(2026-11-24). 가지 안쪽을 침엽 질감 그림으로 덮고 가장자리에 바늘잎을 단다.
- *            윤곽은 그대로라 거는 자리와 저장된 자리는 바뀌지 않는다. 주소에 ?art=needle 일 때만 켠다.
+ *   paint: 수채화 그림을 쓸지. 두 화면 모두 기본으로 켠다(`?art=svg` 면 끄고 여기서 그린다).
  */
-export function treeArtSVG({ lights = true, needles = false, paint = false } = {}) {
+export function treeArtSVG({ lights = true, paint = false } = {}) {
   if (paint) return paintedTreeSVG({ lights });
   const n = TIERS.length;
   let defs = '';
   let body = '';
-
-  if (needles) {
-    /* 질감 타일(tools/make-needles.mjs가 만든다). 단마다 타일을 조금씩 밀어 둔다.
-       같은 자리에서 시작하면 네 단의 무늬가 위아래로 줄을 맞춰 벽지처럼 보인다. */
-    for (let i = 0; i < n; i++) {
-      defs += `<pattern id="xtNeedle${i}" patternUnits="userSpaceOnUse" width="${NEEDLE_TILE}" height="${NEEDLE_TILE}"`
-        + ` patternTransform="translate(${(i * 7.3).toFixed(1)} ${(i * 4.1).toFixed(1)})">`
-        + `<image href="${NEEDLE_IMG}" width="${NEEDLE_TILE}" height="${NEEDLE_TILE}"/></pattern>`;
-    }
-  }
 
   // 왼쪽에서 비치는 빛과 오른쪽 그늘
   defs += '<linearGradient id="xtSide" x1="0" y1="0" x2="1" y2="0">'
@@ -271,9 +260,7 @@ export function treeArtSVG({ lights = true, needles = false, paint = false } = {
       defs += `<clipPath id="xtClip${i}"><path d="${tierPath(TIERS[i + 1])}"/></clipPath>`;
       body += `<path d="${tierPath(t, 2.4)}" fill="#0f4a4c" fill-opacity=".45" clip-path="url(#xtClip${i})"/>`;
     }
-    if (needles) body += edgeNeedles(t, i);
     body += `<path d="${tierPath(t)}" fill="url(#xtT${i})"/>`;
-    if (needles) body += `<path d="${tierPath(t)}" fill="url(#xtNeedle${i})"/>`;
     body += `<path d="${tierPath(t)}" fill="url(#xtSide)"/>`;
   }
 
@@ -347,61 +334,6 @@ function paintedTreeSVG({ lights = true } = {}) {
     body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
   }
   return `<defs>${defs}</defs>${body}`;
-}
-
-/* ── 시안 ②: 침엽 질감 (2026-11-24) ─────────────────────────────
-   "트리가 후져 보인다"의 가장 큰 까닭은 가지 끝이 매끈한 물결이라 레이스 치마로
-   읽히는 것이었다. 윤곽은 거는 자리와 한 몸이라 못 바꾸므로, 윤곽 바깥으로
-   바늘잎을 짧게 삐죽삐죽 내밀어 매끈한 선을 깬다. 바늘잎은 그림일 뿐이고
-   onTree(), clampSpot()은 여전히 tierPath 윤곽으로 셈한다. */
-export const NEEDLE_IMG = 'img/tree-needles.webp';
-export const NEEDLE_TILE = 18;   // 타일 한 장이 차지하는 viewBox 너비
-
-/** 단 하나의 가장자리(옆선 둘, 물결진 밑단)에 바늘잎을 단다. 단 본체보다 먼저 그려 밑에 깔린다. */
-function edgeNeedles(t, i) {
-  const cx = 50, topY = t.apexY, botY = t.baseY, h = botY - topY;
-  const rx = t.half / t.scallops, ry = rx * FLAT;
-  const pts = [];   // [x, y, 바깥쪽 방향 x, y]
-
-  // 밑단 물결: 타원 아래 반쪽을 따라간다
-  for (let s = 0; s < t.scallops; s++) {
-    const ecx = cx - t.half + rx * (2 * s + 1);
-    const m = Math.max(4, Math.round(rx * 1.7));
-    for (let j = 0; j <= m; j++) {
-      const ph = Math.PI * (j + 0.5 * hash01(`${i}e${s}`, j)) / (m + 0.5);
-      const px = ecx - rx * Math.cos(ph), py = botY + ry * Math.sin(ph);
-      // 타원의 바깥 법선에 아래쪽을 섞는다(처진 가지 끝)
-      let nx = -Math.cos(ph) / rx, ny = Math.sin(ph) / ry;
-      const nl = Math.hypot(nx, ny); nx /= nl; ny /= nl;
-      pts.push([px, py, nx * 0.6, ny * 0.6 + 0.55]);
-    }
-  }
-  // 옆선: 꼭대기에서 밑끝까지(거의 직선이다)
-  const m = Math.round(h / 1.6);
-  for (let j = 2; j < m; j++) {
-    const u = j / m, py = topY + h * u, half = t.half * u;
-    for (const side of [-1, 1]) pts.push([cx + side * half, py, side * 0.75, 0.66]);
-  }
-
-  /* 고르게 늘어놓으면 양탄자 술처럼 보인다(첫 시안이 그랬다). 그래서 자리마다
-     바늘 두 개를 엇갈리게(잔가지 끝처럼) 달고, 길이와 각도를 크게 흔들고, 몇 군데는 비운다. */
-  let dark = '', light = '';
-  pts.forEach(([px, py, dx, dy], k) => {
-    const r = j => hash01(`${i}n${k}`, j);
-    if (r(0) < 0.22) return;
-    const l = Math.hypot(dx, dy);
-    const base = Math.atan2(dy / l, dx / l) + (r(1) - 0.5) * 1.1;
-    const sx = px + (r(5) - 0.5) * 0.8, sy = py + (r(6) - 0.5) * 0.5;
-    [[-0.32, r(2)], [0.3, r(3)]].forEach(([da, rl], q) => {
-      const a = base + da, len = 0.5 + rl * rl * 2.4;
-      const x0 = sx - Math.cos(a) * 0.8, y0 = sy - Math.sin(a) * 0.8;   // 윤곽 조금 안쪽에서 시작
-      const seg = `M${x0.toFixed(2)} ${y0.toFixed(2)}l${(Math.cos(a) * len).toFixed(2)} ${(Math.sin(a) * len).toFixed(2)}`;
-      if (r(4 + q * 3) < 0.7) dark += seg; else light += seg;
-    });
-  });
-  return `<path d="${dark}" stroke="${t.bottom}" stroke-width=".42" stroke-linecap="round" fill="none"/>`
-    + `<path d="${dark}" stroke="#062a2c" stroke-opacity=".35" stroke-width=".42" stroke-linecap="round" fill="none"/>`
-    + `<path d="${light}" stroke="${t.top}" stroke-width=".34" stroke-linecap="round" fill="none"/>`;
 }
 
 /** 꼭대기 별 — 꼭지 다섯 개 */
