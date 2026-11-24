@@ -440,6 +440,25 @@
   to   { filter: drop-shadow(0 0 13px rgba(255,235,170,.95)) }
 }
 
+/* ── 반짝임 ───────────────────────────────────────────────────
+   꼭대기 별(tree.html)과 트리 전체(tree-layout.js의 glintLights)가 같이 쓴다.
+   7.2초에 한 번, 천천히 번졌다 사라진다. 켜져 있는 구간이 전체의 3분의 1쯤이라
+   트리에 스무 개를 뿌려 두면 늘 여섯 개쯤만 켜져 있다.
+   한 바퀴 길이와 시작 어긋남은 자리마다 style로 덮어쓴다.
+
+   **SVG 안에서 transform을 쓸 때는 transform-box: fill-box를 꼭 같이 적는다.**
+   안 적으면 SVG 전체 좌표를 기준으로 커져 반짝임이 화면 밖으로 날아간다. */
+.xm-glint {
+  transform-box: fill-box; transform-origin: center; opacity: 0;
+  animation: xm-glint 7.2s ease-in-out infinite;
+}
+@keyframes xm-glint {
+  0%, 66% { opacity: 0; transform: scale(.4) rotate(-12deg) }
+  78%     { opacity: 1; transform: scale(1) rotate(0deg) }
+  92%     { opacity: 0; transform: scale(.75) rotate(8deg) }
+  100%    { opacity: 0; transform: scale(.4) rotate(-12deg) }
+}
+
 /* 이 앱에는 prefers-reduced-motion으로 끄는 움직임이 없다.
    축제 전시용이고 눈 내리는 밤하늘과 반짝이는 트리가 화면의 전부다. 하나씩 꺼 봤더니
    윈도우의 [애니메이션 효과]를 꺼 둔 PC에서 "눈이 안 내린다", "트리가 안 움직인다"가

@@ -5,8 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   TREE, slotCapacity, rowsFor, slotIndex, slotPitch, halfWidthAt, hash01, layout,
-  ORN_W, ornHeight, onTree, clampSpot, nudgeFree, autoSpot, placeAll
-} from '../tree-layout.js';
+  ORN_W, ornHeight, onTree, clampSpot, nudgeFree, autoSpot, placeAll } from '../tree-layout.js';
 
 const ids = n => Array.from({ length: n }, (_, i) => 'letter' + i);
 
@@ -143,13 +142,27 @@ test('treeArtSVG: 그림자는 아래 단에만 오려 붙이고, 전구 줄은 
   assert.ok(!/xtBulb/.test(treeArtSVG({ lights: false })));
 
 
-  /* 수채화 시안도 같은 전구 줄을 쓴다. 예전처럼 흩어진 흰 네 갈래 조각이면
-     트리에 도형이 박힌 것처럼 보였다(2026-11-25). 번지는 심지만 남아야 한다. */
+  /* 수채화 시안은 전구 줄이 아니라 꼭대기 별과 같은 빛줄기를 쓴다
+     (2026-11-25 "전구도 반짝이도 별로야, 별 반짝임을 트리에도 작게 여러 개"). */
   const p = treeArtSVG({ paint: true });
   assert.ok(!/NaN|undefined/.test(p));
-  assert.ok(/xtBulb/.test(p) && /xtCore/.test(p) && /class="xt-l2"/.test(p));
-  assert.ok(!/fill="#ffffff"/.test(p));          // 테두리가 또렷한 흰 점이 없다
-  assert.ok(!/xtBulb/.test(treeArtSVG({ paint: true, lights: false })));
+  assert.ok(!/xtBulb/.test(p));                                    // 전구 알은 없다
+  assert.ok(!/xm-glint/.test(treeArtSVG({ paint: true, lights: false })));
+
+  /* 켜져 있는 구간이 한 바퀴의 5분의 1쯤이라, 스물 몇 개는 돼야 늘 대여섯 개가
+     켜져 있다. 적으면 한동안 트리가 캄캄해진다. */
+  const spots = [...p.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="[\d.]+" fill="url\(#xtGlint\)"\/>/g)]
+    .map(m => [Number(m[1]), Number(m[2])]);
+  assert.ok(spots.length >= 25, `빛줄기가 ${spots.length}개뿐이다`);
+  assert.equal((p.match(/class="xm-glint"/g) || []).length, spots.length);
+
+  // 자리마다 박자가 달라야 한꺼번에 켜지지 않는다
+  assert.ok(new Set(p.match(/animation-delay:-[0-9.]+s/g)).size >= spots.length - 1);
+
+  // 하나도 가지 밖으로 나가면 안 된다(밤하늘에 혼자 떠 있는 반짝임이 된다)
+  for (const [x, y] of spots) {
+    assert.ok(Math.abs(x - 50) <= tierHalfAt(y), `가지 밖: ${x}, ${y}`);
+  }
 });
 
 test('starPath: 꼭지 다섯 개짜리 닫힌 길이 나온다', () => {

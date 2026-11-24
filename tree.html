@@ -110,16 +110,7 @@
       100%    { opacity: 0; transform: scale(.25) }
     }
 
-    /* 수채화 시안(?art=paint)의 별 반짝임. 7.2초에 한 번, 세 꼭지가 차례로.
-       천천히 번졌다 사라진다(0.2초짜리 번쩍임은 스티커처럼 보였다). 켜져 있는 구간은 25%쯤. */
-    .xm-glint { transform-box: fill-box; transform-origin: center; opacity: 0;
-                animation: xm-glint 7.2s ease-in-out infinite }
-    @keyframes xm-glint {
-      0%, 66% { opacity: 0; transform: scale(.4) rotate(-12deg) }
-      78%     { opacity: 1; transform: scale(1) rotate(0deg) }
-      92%     { opacity: 0; transform: scale(.75) rotate(8deg) }
-      100%    { opacity: 0; transform: scale(.4) rotate(-12deg) }
-    }
+    /* 별과 트리의 반짝임(.xm-glint)은 xmas.css에 있다 — 두 군데가 같이 쓴다. */
 
     /* 가지의 전구 줄. 알을 세 무리로 나눠 박자를 어긋나게 숨 쉬게 한다.
        한꺼번에 밝아지면 전등 스위치를 켠 것처럼 보인다. 꺼지지는 않고 은은하게만 오르내린다.
@@ -222,7 +213,7 @@ import { collection, onSnapshot, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, C_ORNAMENTS, watchConfig, esc, mountSnow } from "./xmas-core.js";
 import { ornamentSVG } from "./ornaments.js";
-import { placeAll, TREE, starPath, treeArtSVG } from "./tree-layout.js";
+import { placeAll, TREE, starPath, treeArtSVG, rayPath } from "./tree-layout.js";
 import { demoCount, demoOrnaments, mountDemoBadge } from "./demo-data.js";
 
 const $ = s => document.querySelector(s);
@@ -319,13 +310,7 @@ mountSnow($('#snow'), 160);   // 전시 화면은 넉넉히
      참고 그림처럼 둘레 빛(#starGlow)이 숨 쉬는 것을 바탕에 두고, 가끔 꼭지 하나에서
      **가늘고 긴 빛줄기**가 천천히 번졌다 사라지게 한다. 한 번에 하나만 뜬다. */
   if (look === 'paint') {
-    /* 가는 빛줄기: 아주 납작한 마름모 두 개를 십자로. sparkPath는 곡선이라 갈래가
-       통통해져서 또 하나의 별처럼 보였다(첫 시도). 여기서는 곧은 선으로 가늘게 뺀다. */
-    const ray = (cx, cy, r, w) => {
-      const f = n => n.toFixed(2);
-      return `M${f(cx)} ${f(cy - r)}L${f(cx + w)} ${f(cy)}L${f(cx)} ${f(cy + r)}L${f(cx - w)} ${f(cy)}Z`
-           + `M${f(cx - r)} ${f(cy)}L${f(cx)} ${f(cy - w)}L${f(cx + r)} ${f(cy)}L${f(cx)} ${f(cy + w)}Z`;
-    };
+    const ray = rayPath;   // 트리 반짝임과 같은 모양을 쓴다(tree-layout.js)
     // [꼭지각(도), 중심에서 거리, 긴 갈래 길이, 시작 어긋남(초)]
     const GLINTS = [[-90, 7.4, 3.4, 0], [-162, 7.0, 2.9, 2.4], [-18, 7.0, 3.1, 4.8]];
     for (const [deg, dist, len, delay] of GLINTS) {

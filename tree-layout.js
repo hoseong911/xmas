@@ -202,41 +202,30 @@ export function tierPath(t, dy = 0, flat = FLAT) {
   return d;
 }
 
-/* 전구 줄 — 두 시안이 같이 쓴다.
-   알을 트리에 흩어 두면 "반짝이가 군데군데 박힌 도형의 집합"으로 보인다
-   (2026-11-25). 단마다 비스듬히 늘어진 줄에 꿰어야 전구로 읽힌다.
-   soft: 수채화 시안용. 단단한 흰 점과 또렷한 줄을 빼고 번지는 빛만 남긴다 —
-   물감 그림 위에서는 매끈한 도형이 혼자 튀어 보인다. */
-function swagLights({ soft = false } = {}) {
+/* 전구 줄 — 기하 시안(?art=svg)의 가지에 건다.
+   알을 흩어 두면 얼룩으로 보인다. 단마다 비스듬히 늘어진 줄에 꿰어야 전구로 읽힌다.
+   (수채화 시안은 이것 대신 꼭대기 별과 같은 빛줄기를 쓴다 — glintLights) */
+function swagLights() {
   let defs = '<radialGradient id="xtBulb">'
     + '<stop offset="0" stop-color="#fff6d8"/>'
     + '<stop offset=".35" stop-color="#ffd77a" stop-opacity=".55"/>'
     + '<stop offset="1" stop-color="#ffb84a" stop-opacity="0"/></radialGradient>';
-  // 심지. 수채화에서는 테두리가 없어야 하므로 꽉 찬 점 대신 번지는 점을 쓴다.
-  if (soft) defs += '<radialGradient id="xtCore">'
-    + '<stop offset="0" stop-color="#fffdf2"/>'
-    + '<stop offset=".55" stop-color="#fff4cf" stop-opacity=".7"/>'
-    + '<stop offset="1" stop-color="#fff4cf" stop-opacity="0"/></radialGradient>';
-
   let body = '';
+  // 알은 세 무리로 나눠 둔다. 전시 화면이 무리마다 다른 박자로 숨 쉬게 한다(.xt-l0~2).
   const groups = ['', '', ''];
   TIERS.forEach((t, k) => {
     const [yl, yr, sag] = SWAGS[k];
     const half = y => ((y - t.apexY) / (t.baseY - t.apexY)) * t.half * 0.97;
     const x0 = 50 - half(yl), x1 = 50 + half(yr);
     const mx = (x0 + x1) / 2, my = (yl + yr) / 2 + sag * 2;
-    body += `<path d="M${x0.toFixed(2)} ${yl}Q${mx.toFixed(2)} ${my} ${x1.toFixed(2)} ${yr}" fill="none" stroke="#f1d48a" stroke-width="${soft ? '.3' : '.35'}" stroke-opacity="${soft ? '.26' : '.55'}"/>`;
+    body += `<path d="M${x0.toFixed(2)} ${yl}Q${mx.toFixed(2)} ${my} ${x1.toFixed(2)} ${yr}" fill="none" stroke="#f1d48a" stroke-width=".35" stroke-opacity=".55"/>`;
     const N = 9 + k * 4;
     for (let j = 0; j <= N; j++) {
       const u = j / N, a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
       const x = (a * x0 + b * mx + c * x1).toFixed(2);
       const y = (a * yl + b * my + c * yr).toFixed(2);
-      // 알마다 크기를 조금씩 달리한다. 다 같으면 줄에 꿰어도 모눈처럼 보인다.
-      const v = soft ? 1 + ((j * 7 + k * 3) % 5) * 0.12 : 1;
-      groups[(j + k) % 3] += `<circle cx="${x}" cy="${y}" r="${(1.25 * v).toFixed(2)}" fill="url(#xtBulb)"/>`
-        + (soft
-          ? `<circle cx="${x}" cy="${y}" r="${(0.6 * v).toFixed(2)}" fill="url(#xtCore)"/>`
-          : `<circle cx="${x}" cy="${y}" r=".42" fill="#fff4cf"/>`);
+      groups[(j + k) % 3] += `<circle cx="${x}" cy="${y}" r="1.25" fill="url(#xtBulb)"/>`
+        + `<circle cx="${x}" cy="${y}" r=".42" fill="#fff4cf"/>`;
     }
   });
   body += groups.map((g, i) => `<g class="xt-l${i}">${g}</g>`).join('');
@@ -316,8 +305,8 @@ export function treeArtSVG({ lights = true, paint = false } = {}) {
 /* ── 시안 ② 수채화 (2026-11-24) ─────────────────────────────────
    선생님이 보여 주신 참고 그림처럼 물감으로 칠한 트리. 가지와 기둥은 그림 한 장
    (tools/make-tree-paint.mjs가 tierPath 윤곽 그대로 칠한다)이고, 그 위에 반짝이만
-   SVG로 얹는다. 전구 줄은 기하 시안과 같은 swagLights()이고, 세 무리(.xt-l0~2)로 나눠
-   화면이 박자를 어긋나게 숨 쉬게 한다.
+   SVG로 얹는다. 반짝임은 꼭대기 별과 같은 빛줄기다(glintLights). 전구 줄(swagLights)은
+   기하 시안(?art=svg)에만 남아 있다 — 물감 그림 위에서는 줄과 알이 도형으로 보였다.
    주소에 ?art=paint 일 때만 켠다. */
 export const PAINT_IMG = 'img/tree-paint.webp';
 
@@ -329,10 +318,62 @@ function paintedTreeSVG({ lights = true } = {}) {
   body += `<image href="${PAINT_IMG}" x="0" y="0" width="${TREE.vbW}" height="${TREE.vbH}"/>`;
 
   if (lights) {
-    const L = swagLights({ soft: true });
+    const L = glintLights();
     defs += L.defs; body += L.body;
   }
   return `<defs>${defs}</defs>${body}`;
+}
+
+/* 트리 반짝임 — 꼭대기 별과 **같은 반짝임**을 트리에도 뿌린다
+   (2026-11-25 "전구도 반짝이도 별로야, 별에 있는 반짝이는 효과를 트리에도 작게 여러 개").
+   가늘고 긴 빛줄기가 천천히 번졌다 사라진다. 자리마다 박자를 어긋나게 줘서 늘 몇 개만
+   켜져 있다 — 한꺼번에 켜지면 전구 스위치가 되고, 하나씩이면 트리가 비어 보인다.
+   움직임은 xmas.css의 .xm-glint가 맡는다(별과 한 벌이다). */
+
+/** 빛줄기 자리 [x, y, 크기]. 난수로 두면 새로고침마다 바뀌어 어수선하므로 한 번만 셈해 둔다.
+    개수가 적으면 한동안 트리에 아무것도 안 켜져 있다 — 켜져 있는 구간이 한 바퀴의
+    5분의 1쯤이라, 서른 개쯤 뿌려야 늘 대여섯 개가 켜져 있다. */
+const GLINTS = (() => {
+  const n = 32, out = [];
+  for (let i = 0; i < n; i++) {
+    const y = 22 + ((i + 0.5) / n) * 92;        // 꼭대기 별 밑에서 밑단 조금 위까지
+    /* 좌우는 황금비로 흩는다. 난수가 아니라 늘 같은 자리가 나오면서도 줄이 서지 않는다.
+       가장자리에서 조금 들여야(0.72) 물감 가지 밖으로 비어져 나오지 않는다. */
+    const u = ((((i + 1) * 0.6180339887) % 1) * 2 - 1) * 0.92;
+    const h = tierHalfAt(y) * 0.72;
+    if (h < 4) continue;
+    out.push([+(50 + u * h).toFixed(1), +y.toFixed(1), 0.9 + ((i * 3) % 5) * 0.12]);
+  }
+  return out;
+})();
+
+/** 가는 빛줄기: 아주 납작한 마름모 두 개를 십자로. 곡선으로 두면 갈래가 통통해져
+    또 하나의 별처럼 보인다(2026-11-24). 꼭대기 별도 이것을 쓴다(tree.html). */
+export function rayPath(cx, cy, r, w) {
+  const f = n => n.toFixed(2);
+  return `M${f(cx)} ${f(cy - r)}L${f(cx + w)} ${f(cy)}L${f(cx)} ${f(cy + r)}L${f(cx - w)} ${f(cy)}Z`
+       + `M${f(cx - r)} ${f(cy)}L${f(cx)} ${f(cy - w)}L${f(cx + r)} ${f(cy)}L${f(cx)} ${f(cy + w)}Z`;
+}
+
+function glintLights() {
+  const defs = '<radialGradient id="xtGlint">'
+    + '<stop offset="0" stop-color="#fffdf2"/>'
+    + '<stop offset=".3" stop-color="#ffc85a" stop-opacity=".8"/>'
+    + '<stop offset="1" stop-color="#ff9f2e" stop-opacity="0"/></radialGradient>';
+  let body = '';
+  GLINTS.forEach(([x, y, s], i) => {
+    /* 길이(초)를 자리마다 조금씩 달리 줘야 시간이 갈수록 박자가 더 흐트러진다.
+       다 같으면 처음 어긋나게 줘도 한 바퀴 뒤에 똑같은 무늬가 돌아온다. */
+    const dur = (6 + (i % 5) * 0.6).toFixed(1);
+    const delay = (i * 7.2 / GLINTS.length).toFixed(2);
+    const len = s * 2.6;
+    body += `<g class="xm-glint" style="animation-duration:${dur}s;animation-delay:-${delay}s">`
+      + `<circle cx="${x}" cy="${y}" r="${(s * 2.6).toFixed(2)}" fill="url(#xtGlint)"/>`
+      + `<path d="${rayPath(x, y, len, 0.15)}" fill="#ffeeb8"/>`
+      + `<path d="${rayPath(x, y, len * 0.42, 0.1)}" fill="#ffe09a" fill-opacity=".7" transform="rotate(45 ${x} ${y})"/>`
+      + '</g>';
+  });
+  return { defs, body };
 }
 
 /** 꼭대기 별 — 꼭지 다섯 개 */
