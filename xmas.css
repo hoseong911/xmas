@@ -455,11 +455,13 @@
 
 /* 트리에 뿌리는 반짝임. 별과 **일부러 다르게** 둔다 — 별 것을 그대로 쓰니 서른 개가
    저마다 번쩍거려 눈이 아팠다(2026-11-25 "번쩍거리는 느낌 말고 반짝거리는 느낌으로").
-   돌리지 않고, 끝까지 밝히지 않고(0.72), 뜨고 지는 데 시간을 더 준다. */
+   돌리지 않고, 뜨고 지는 데 시간을 더 준다. 밝기는 밤하늘 별만 한 크기라
+   거의 끝까지 올려도 번쩍이지 않는다 — 번쩍여 보이게 하는 것은 밝기가 아니라
+   크기와 도는 움직임이었다. */
 .xm-twinkle { animation: xm-twinkle 7.2s ease-in-out infinite }
 @keyframes xm-twinkle {
   0%, 56% { opacity: 0; transform: scale(.6) }
-  76%     { opacity: .72; transform: scale(1) }
+  76%     { opacity: .88; transform: scale(1) }
   94%     { opacity: 0; transform: scale(.78) }
   100%    { opacity: 0; transform: scale(.6) }
 }

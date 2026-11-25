@@ -369,11 +369,10 @@ function glintLights() {
        다 같으면 처음 어긋나게 줘도 한 바퀴 뒤에 똑같은 무늬가 돌아온다. */
     const dur = (6 + (i % 5) * 0.6).toFixed(1);
     const delay = (i * 7.2 / GLINTS.length).toFixed(2);
-    const len = s * 1.9;
+    const len = s * 0.95;
     body += `<g class="xm-twinkle" style="animation-duration:${dur}s;animation-delay:-${delay}s">`
-      + `<circle cx="${x}" cy="${y}" r="${(s * 1.6).toFixed(2)}" fill="url(#xtGlint)"/>`
-      + `<path d="${rayPath(x, y, len, 0.11)}" fill="#fffdf6"/>`
-      + `<path d="${rayPath(x, y, len * 0.42, 0.08)}" fill="#fff8e4" fill-opacity=".6" transform="rotate(45 ${x} ${y})"/>`
+      + `<circle cx="${x}" cy="${y}" r="${(s * 0.8).toFixed(2)}" fill="url(#xtGlint)"/>`
+      + `<path d="${rayPath(x, y, len, 0.07)}" fill="#fffdf6"/>`
       + '</g>';
   });
   return { defs, body };
