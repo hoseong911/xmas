@@ -555,10 +555,17 @@ window.addEventListener('resize', () => { if (cam.classList.contains('zoom')) fi
    늘어놓지 않고 **번갈아 보여 준다**(책장 넘기듯). 나란히 두면 그루마다 폭이 절반이
    되어 오너먼트도 절반으로 작아지는데, 그러면 겹침을 피하려 그루를 늘린 뜻이 없어진다.
 
-   넘기는 때: 전체 보기는 PAGE_SEC마다, 가까이 보기는 카메라가 꼭대기에서 밑동까지
-   내려갔다 올라온 뒤(PAN_SEC의 두 배)다. 훑는 중간에 트리가 바뀌면 보는 사람이
-   어디를 보고 있었는지 잃는다. */
-const PAGE_SEC = 30;
+   넘기는 때는 **한 바퀴가 얼마나 걸리느냐**로 정한다. 그루가 늘수록 한 그루를 보여 주는
+   시간을 줄여야 한다 — 자기 편지를 보러 온 학생은 자기 그루가 올 때까지 서서 기다린다.
+   그루 한 개당 30초로 묶어 두면 그루 여섯이면 한 바퀴에 3분이다.
+     · 전체 보기 — 한 그루에 PAGE_SEC, 다만 한 바퀴가 ROUND_SEC를 넘으면 그만큼 줄인다.
+       그래도 PAGE_MIN보다 짧게는 안 한다(눈이 따라가지 못한다).
+     · 가까이 보기 — 꼭대기에서 밑동까지 **한 번 훑고** 넘긴다(PAN_SEC). 훑는 중간에
+       바뀌면 보던 사람이 자리를 잃는다. 넘길 때 카메라를 되감으므로 새 그루도
+       꼭대기부터 시작한다(그루가 하나뿐이면 예전처럼 내려갔다 올라온다). */
+const PAGE_SEC  = 30;   // 전체 보기에서 한 그루를 보여 주는 시간
+const PAGE_MIN  = 12;   // 그루가 아무리 많아도 이보다 짧게 보여 주지 않는다
+const ROUND_SEC = 120;  // 모든 그루를 한 바퀴 도는 데 목표로 하는 시간
 let curPage = 0;
 let pageTimer = 0;
 let lastPages = 1;
@@ -566,8 +573,11 @@ let lastPages = 1;
 function schedulePage() {
   clearTimeout(pageTimer);
   pageTimer = 0;
-  if (pageCount(items.length) < 2) return;
-  const sec = cam.classList.contains('zoom') ? PAN_SEC * 2 : PAGE_SEC;
+  const pages = pageCount(items.length);
+  if (pages < 2) return;
+  const sec = cam.classList.contains('zoom')
+    ? PAN_SEC
+    : Math.max(PAGE_MIN, Math.min(PAGE_SEC, ROUND_SEC / pages));
   pageTimer = setTimeout(nextPage, sec * 1000);
 }
 

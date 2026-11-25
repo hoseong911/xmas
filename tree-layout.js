@@ -439,8 +439,14 @@ export const ORN_W = 5.4;
 
    **그루 번호를 문서에 적지 않는다.** 걸린 순서(createdAt)에서 셈할 수 있으므로 적어
    둘 필요가 없고, 적어 두면 어드민에서 숨겼다 되돌릴 때 같이 챙겨야 하는 값이 하나 더
-   생긴다 — 자리(x, y)를 빠뜨려 오너먼트가 엉뚱한 데로 간 일이 있었다. */
-export const TREE_CAP = 300;
+   생긴다 — 자리(x, y)를 빠뜨려 오너먼트가 엉뚱한 데로 간 일이 있었다.
+
+   300에서 100으로 줄였다(2026-11-26). 300통을 한 그루에 담으면 오너먼트를 4.2%까지
+   줄여야 겨우 들어가는데, 그러면 멀리서 뭘 달았는지 안 보인다. 100통이면 **기준 크기
+   그대로**(5.4%) 넉넉히 들어간다 — 그루를 늘리는 값이 오너먼트를 줄이는 값보다 싸다.
+   대신 그루가 늘수록 내 것을 보려고 기다리는 시간이 길어지므로, 전시 화면이 넘기는
+   간격을 그루 수에 맞춰 줄인다(tree.html의 ROUND_SEC). */
+export const TREE_CAP = 100;
 
 /** 편지 n통이면 트리가 몇 그루인가 */
 export function pageCount(n) {
@@ -456,7 +462,11 @@ export function pageCount(n) {
    0.1%도 안 되고, `.xm-hang`의 width transition이 그 사이를 건너가므로 보이지 않는다.
 
    2026-11-11에 탈이 났던 것은 **오너먼트가 3.5%까지 쪼그라든 것**이었다. 그래서 바닥
-   (ORN_W_MIN)을 두었고, 거기 닿을 만큼 차면 트리를 한 그루 더 띄운다(TREE_CAP). */
+   (ORN_W_MIN)을 두었다.
+
+   **지금 TREE_CAP(100)에서는 줄어드는 쪽이 한 번도 안 쓰인다** — 한 그루가 꽉 차도 100통,
+   기준 크기(5.4%)로 넉넉하다. 줄이는 길을 남겨 둔 것은 TREE_CAP을 다시 올릴 때를 위해서다.
+   올리면 MANY를 넘는 만큼 저절로 줄어든다. */
 export const ORN_W_MAX = 7.6;   // 적을 때 이보다 더 키우지 않는다
 export const ORN_W_MIN = 4.2;   // 많을 때 이보다 더 줄이지 않는다
 const FEW  = 60;                // 여기까지는 통수가 적을수록 크다
@@ -466,9 +476,10 @@ const MANY = 160;               // 여기부터 줄기 시작한다(60~160통이
 export function ornWidthFor(n) {
   const k = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
   const r = v => Math.round(v * 100) / 100;
-  if (k <= 1)    return ORN_W_MAX;
-  if (k <= FEW)  return r(ORN_W_MAX + (ORN_W - ORN_W_MAX) * ((k - 1) / (FEW - 1)));
-  if (k <= MANY) return ORN_W;
+  if (k <= 1)   return ORN_W_MAX;
+  if (k <= FEW) return r(ORN_W_MAX + (ORN_W - ORN_W_MAX) * ((k - 1) / (FEW - 1)));
+  // 한 그루가 MANY통도 못 받으면 줄일 일이 없다(0으로 나누는 것도 여기서 막힌다)
+  if (k <= MANY || TREE_CAP <= MANY) return ORN_W;
   return r(ORN_W + (ORN_W_MIN - ORN_W) * Math.min(1, (k - MANY) / (TREE_CAP - MANY)));
 }
 

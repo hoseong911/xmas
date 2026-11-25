@@ -203,14 +203,14 @@ test('layout: 크기를 따로 주지 않으면 기준 크기를 쓴다', () => 
   assert.ok(ornHeight() > ORN_W);          // 그림이 세로로 길다(고리 자리)
 });
 
-test('ornWidthFor: 적을 때 키우고 많을 때 줄인다', () => {
+test('ornWidthFor: 적을 때 키우고, 한 그루가 차도 기준 크기를 지킨다', () => {
   assert.equal(ornWidthFor(0), ORN_W_MAX);
   assert.equal(ornWidthFor(1), ORN_W_MAX);
   assert.equal(ornWidthFor(60), ORN_W);
-  assert.equal(ornWidthFor(160), ORN_W);
-  assert.equal(ornWidthFor(TREE_CAP), ORN_W_MIN);
   assert.ok(ornWidthFor(14) > ORN_W);       // 열네 통이면 기준보다 크다
-  assert.ok(ornWidthFor(260) < ORN_W);      // 이백예순 통이면 기준보다 작다
+  /* 한 그루가 꽉 차도 줄어들지 않는 것이 TREE_CAP을 100으로 둔 까닭이다.
+     그루를 늘리는 값이 오너먼트를 줄이는 값보다 싸다. */
+  assert.equal(ornWidthFor(TREE_CAP), ORN_W);
   // 통수가 늘면 절대 커지지 않고, 바닥과 천장을 벗어나지 않는다
   let prev = Infinity;
   for (let n = 0; n <= 600; n++) {
@@ -234,14 +234,16 @@ test('pageCount: 한 그루가 차면 그루가 늘어난다', () => {
   assert.equal(pageCount(TREE_CAP * 2 + 1), 3);
 });
 
-test('그루를 나눠 담으면 오너먼트가 바닥 크기보다 작아지지 않는다', () => {
+test('그루를 나눠 담으면 꽉 찬 그루도 기준 크기를 지킨다', () => {
   // 전시 화면이 하는 것과 같이 TREE_CAP 단위로 잘라 placeAll을 부른다
-  const all = ids(TREE_CAP * 2).map((id, i) => ({ id, x: 50, y: 40 + (i % 60) }));
+  const all = ids(TREE_CAP * 3).map((id, i) => ({ id, x: 50, y: 40 + (i % 60) }));
   for (let p = 0; p * TREE_CAP < all.length; p++) {
     for (const q of placeAll(all.slice(p * TREE_CAP, (p + 1) * TREE_CAP))) {
-      assert.equal(q.w, ORN_W_MIN);
+      assert.equal(q.w, ORN_W);
     }
   }
+  // 아직 덜 찬 마지막 그루는 오너먼트가 더 크다 — 그루마다 따로 부르는 까닭이다
+  assert.ok(placeAll(all.slice(0, 20))[0].w > ORN_W);
 });
 
 test('clampSpot: 어디를 찍어도 가지 안으로 끌어온다', () => {

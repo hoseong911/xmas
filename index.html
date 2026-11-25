@@ -623,6 +623,13 @@ $('#go4').addEventListener('click', async () => {
 });
 
 // ── 보내기 ────────────────────────────────────────────────────
+/* 트리가 여러 그루면 **몇 번째 그루인지 알려 준다.** 전시 화면이 그루를 번갈아 보여 주므로,
+   모르면 자기 트리가 아닌 트리를 보며 "내 것이 없네" 한다. */
+function doneMsg() {
+  return `${form.teacherName} 선생님께 마음이 전해졌어요.`
+    + (pickPage ? ` ${pickPage + 1}번째 트리에서 찾아 보세요.` : '');
+}
+
 $('#go5go').addEventListener('click', send);
 
 async function send() {
@@ -639,7 +646,7 @@ async function send() {
     // 미리보기에서는 쓰는 척만 한다(실제 컬렉션에 시험 편지를 남기지 않는다)
     if (DEMO) {
       $('#doneOrn').innerHTML = ornamentSVG(form.ornament, 148, 'xm-bigorn');
-      $('#doneMsg').textContent = `${form.teacherName} 선생님께 마음이 전해졌어요.`;
+      $('#doneMsg').textContent = doneMsg();
       show(6);
       startDoneTimer();
       return;
