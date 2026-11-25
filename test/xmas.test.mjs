@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   TREE, slotCapacity, rowsFor, slotIndex, slotPitch, halfWidthAt, hash01, layout,
-  ORN_W, ornHeight, onTree, clampSpot, nudgeFree, autoSpot, placeAll } from '../tree-layout.js';
+  ORN_W, ORN_W_MAX, ORN_W_MIN, ornWidthFor, TREE_CAP, pageCount,
+  ornHeight, onTree, clampSpot, nudgeFree, autoSpot, placeAll } from '../tree-layout.js';
 
 const ids = n => Array.from({ length: n }, (_, i) => 'letter' + i);
 
@@ -194,11 +195,53 @@ test('layout: 모든 오너먼트가 가지 위에 걸린다', () => {
 
 // ── 학생이 고르는 자리 ──────────────────────────────────────────
 
-test('ORN_W: 편지 수와 무관하게 늘 같은 크기다', () => {
+test('layout: 크기를 따로 주지 않으면 기준 크기를 쓴다', () => {
   for (const n of [1, 50, 180, 400]) {
     for (const p of layout(ids(n))) assert.equal(p.w, ORN_W);
   }
+  for (const p of layout(ids(5), 4.2)) assert.equal(p.w, 4.2);
   assert.ok(ornHeight() > ORN_W);          // 그림이 세로로 길다(고리 자리)
+});
+
+test('ornWidthFor: 적을 때 키우고 많을 때 줄인다', () => {
+  assert.equal(ornWidthFor(0), ORN_W_MAX);
+  assert.equal(ornWidthFor(1), ORN_W_MAX);
+  assert.equal(ornWidthFor(60), ORN_W);
+  assert.equal(ornWidthFor(160), ORN_W);
+  assert.equal(ornWidthFor(TREE_CAP), ORN_W_MIN);
+  assert.ok(ornWidthFor(14) > ORN_W);       // 열네 통이면 기준보다 크다
+  assert.ok(ornWidthFor(260) < ORN_W);      // 이백예순 통이면 기준보다 작다
+  // 통수가 늘면 절대 커지지 않고, 바닥과 천장을 벗어나지 않는다
+  let prev = Infinity;
+  for (let n = 0; n <= 600; n++) {
+    const w = ornWidthFor(n);
+    assert.ok(w <= prev + 1e-9, `${n}통에서 커졌다 (${prev} → ${w})`);
+    assert.ok(w >= ORN_W_MIN && w <= ORN_W_MAX, `${n}통: ${w}`);
+    prev = w;
+  }
+  // 엉뚱한 값에도 멈추지 않는다
+  for (const bad of [NaN, undefined, -5, Infinity]) {
+    assert.ok(ornWidthFor(bad) >= ORN_W_MIN && ornWidthFor(bad) <= ORN_W_MAX, String(bad));
+  }
+});
+
+test('pageCount: 한 그루가 차면 그루가 늘어난다', () => {
+  assert.equal(pageCount(0), 1);
+  assert.equal(pageCount(1), 1);
+  assert.equal(pageCount(TREE_CAP), 1);
+  assert.equal(pageCount(TREE_CAP + 1), 2);
+  assert.equal(pageCount(TREE_CAP * 2), 2);
+  assert.equal(pageCount(TREE_CAP * 2 + 1), 3);
+});
+
+test('그루를 나눠 담으면 오너먼트가 바닥 크기보다 작아지지 않는다', () => {
+  // 전시 화면이 하는 것과 같이 TREE_CAP 단위로 잘라 placeAll을 부른다
+  const all = ids(TREE_CAP * 2).map((id, i) => ({ id, x: 50, y: 40 + (i % 60) }));
+  for (let p = 0; p * TREE_CAP < all.length; p++) {
+    for (const q of placeAll(all.slice(p * TREE_CAP, (p + 1) * TREE_CAP))) {
+      assert.equal(q.w, ORN_W_MIN);
+    }
+  }
 });
 
 test('clampSpot: 어디를 찍어도 가지 안으로 끌어온다', () => {
@@ -274,13 +317,16 @@ test('placeAll: 고른 자리는 그대로, 없는 것만 예전 방식으로 �
   assert.deepEqual({ x: out[2].x, y: out[2].y }, { x: 58, y: 70 });
   assert.ok(Number.isFinite(out[1].x) && Number.isFinite(out[1].y));
   assert.ok(Math.abs(out[3].x - 50) <= tierHalfAt(out[3].y) + 1e-9);
-  for (const p of out) assert.equal(p.w, ORN_W);
+  for (const p of out) assert.equal(p.w, ornWidthFor(out.length));
 });
 
+/* 크기는 통수에 따라 변한다. **자리는 변하지 않는다** — 이 둘이 섞이면
+   "내가 저기 달았어"가 깨진다. 그래서 x, y만 본다. */
 test('placeAll: 편지가 늘어도 이미 걸린 것은 움직이지 않는다', () => {
   const first = placeAll([{ id: 'a', x: 44, y: 90 }]);
   const later = placeAll([{ id: 'a', x: 44, y: 90 }, ...ids(200).map((id, i) => ({ id, x: 40 + i % 20, y: 40 + i % 60 }))]);
-  assert.deepEqual(first[0], later[0]);
+  assert.deepEqual({ x: first[0].x, y: first[0].y }, { x: later[0].x, y: later[0].y });
+  assert.ok(later[0].w < first[0].w);   // 작아지기는 한다
 });
 
 test('nudgeFree: 찍은 자리에서 멀리 날아가지 않는다', () => {

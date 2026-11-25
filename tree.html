@@ -215,6 +215,7 @@
   </div>
 
   <div class="xm-corner">
+    <button class="xm-btn xm-btn-ghost xm-btn-sm" id="nextTree" type="button" hidden>다음 트리</button>
     <button class="xm-btn xm-btn-ghost xm-btn-sm" id="viewBtn" type="button">가까이 보기</button>
     <a class="xm-btn xm-btn-ghost xm-btn-sm" href="teacher.html">선생님 전용</a>
   </div>
@@ -224,7 +225,7 @@ import { collection, onSnapshot, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, C_ORNAMENTS, watchConfig, esc, mountSnow } from "./xmas-core.js";
 import { ornamentSVG } from "./ornaments.js";
-import { placeAll, TREE, starPath, treeArtSVG, rayPath } from "./tree-layout.js";
+import { placeAll, pageCount, TREE_CAP, TREE, starPath, treeArtSVG, rayPath } from "./tree-layout.js";
 import { demoCount, demoOrnaments, mountDemoBadge } from "./demo-data.js";
 
 const $ = s => document.querySelector(s);
@@ -427,6 +428,7 @@ function setView(mode) {
     cam.style.removeProperty('--pan1');
   }
   if (zoom) startFocus(); else stopFocus();
+  schedulePage();   // 보기에 따라 넘기는 간격이 다르다
   const u = new URL(location.href);
   if (zoom) u.searchParams.set('view', 'zoom'); else u.searchParams.delete('view');
   history.replaceState(null, '', u);
@@ -474,6 +476,7 @@ function updateFocus(now) {
   const want = [];
   const off = [];
   for (const el of nodes.values()) {
+    if (el.hidden) continue;        // 지금 안 보이는 그루의 이름은 셈에 넣지 않는다
     const on = el.classList.contains('lab-on');
     const d = Math.abs((+el.dataset.y || 0) - focusY);
     /* 켜는 선(BAND_ON)보다 끄는 선(BAND_OFF)을 넉넉히 잡는다. 두 선이 같으면
@@ -547,6 +550,46 @@ $('#viewBtn').addEventListener('click', () => {
 // 화면이 바뀌면(TV 해상도 전환, 폰 돌리기) 훑을 구간을 다시 잡는다
 window.addEventListener('resize', () => { if (cam.classList.contains('zoom')) fitCamera(); });
 
+/* ── 트리 여러 그루 (2026-11-26) ───────────────────────────────
+   한 그루가 TREE_CAP통까지 차면 그루를 하나 더 쓴다. 화면은 하나뿐이므로 나란히
+   늘어놓지 않고 **번갈아 보여 준다**(책장 넘기듯). 나란히 두면 그루마다 폭이 절반이
+   되어 오너먼트도 절반으로 작아지는데, 그러면 겹침을 피하려 그루를 늘린 뜻이 없어진다.
+
+   넘기는 때: 전체 보기는 PAGE_SEC마다, 가까이 보기는 카메라가 꼭대기에서 밑동까지
+   내려갔다 올라온 뒤(PAN_SEC의 두 배)다. 훑는 중간에 트리가 바뀌면 보는 사람이
+   어디를 보고 있었는지 잃는다. */
+const PAGE_SEC = 30;
+let curPage = 0;
+let pageTimer = 0;
+let lastPages = 1;
+
+function schedulePage() {
+  clearTimeout(pageTimer);
+  pageTimer = 0;
+  if (pageCount(items.length) < 2) return;
+  const sec = cam.classList.contains('zoom') ? PAN_SEC * 2 : PAGE_SEC;
+  pageTimer = setTimeout(nextPage, sec * 1000);
+}
+
+function nextPage() {
+  const pages = pageCount(items.length);
+  if (pages < 2) return;
+  curPage = (curPage + 1) % pages;
+  render();
+  /* 새 그루도 꼭대기부터 훑게 카메라를 되감는다. animation을 한 번 끊어야 다시
+     시작한다(class를 떼었다 붙이면 fitCamera가 넣어 둔 값까지 날아간다). */
+  if (cam.classList.contains('zoom')) {
+    stopFocus();
+    cam.style.animation = 'none';
+    void cam.offsetWidth;
+    cam.style.animation = '';
+    startFocus();
+  }
+  schedulePage();
+}
+
+$('#nextTree').addEventListener('click', nextPage);
+
 /* ── 선생님 모드 ───────────────────────────────────────────────
    teacher.html에서 네 자리 번호를 확인한 뒤 같은 탭으로 넘어오면
    sessionStorage에 자기 편지 id 목록이 들어 있다. 트리는 그것만 빛나게 한다.
@@ -586,8 +629,16 @@ function labelHTML(it) {
 
 function render(freshIds = new Set()) {
   const wrap = $('#orns');
-  // 학생이 고른 자리(x, y)가 있으면 그대로, 없는 옛 문서만 자동으로 채운다
-  const placed = placeAll(items);
+  const pages = pageCount(items.length);
+  if (curPage >= pages) curPage = 0;
+  /* 그루마다 따로 자리를 셈한다 — 학생이 고른 자리(x, y)가 있으면 그대로, 없는 옛
+     문서만 자동으로 채운다. 오너먼트 크기도 **그 그루에 걸린 통수**로 정해진다. */
+  const placed = [];
+  for (let p = 0; p < pages; p++) {
+    for (const q of placeAll(items.slice(p * TREE_CAP, (p + 1) * TREE_CAP))) {
+      placed.push({ ...q, page: p });
+    }
+  }
   const byId = new Map(items.map(it => [it.id, it]));
 
   // 사라진 것 치우기(어드민에서 숨긴 편지)
@@ -628,12 +679,19 @@ function render(freshIds = new Set()) {
     el.style.left  = p.x + '%';
     el.style.top   = (p.y / TREE.vbH * 100) + '%';
     el.style.width = p.w + '%';
+    /* 지금 보고 있는 그루만 보인다. 지우지 않고 감추는 까닭은, 그루를 넘길 때마다
+       삼백 장을 다시 만들면 큰 화면에서 눈에 보이게 덜컥거리기 때문이다. */
+    el.hidden = p.page !== curPage;
   }
 
   $('#treeEmpty').hidden = items.length > 0;
+  $('#nextTree').hidden = pages < 2;
   $('#foot').innerHTML = items.length
     ? `지금까지 <b>${items.length}</b>통의 마음이 모였어요`
+      + (pages > 1 ? ` · ${curPage + 1}번째 트리 (모두 ${pages}그루)` : '')
     : '';
+  // 그루 수가 변한 때만 시계를 다시 건다(편지가 들어올 때마다 되감으면 안 넘어간다)
+  if (pages !== lastPages) { lastPages = pages; schedulePage(); }
   firstPaint = false;
 }
 

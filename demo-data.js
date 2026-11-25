@@ -15,7 +15,7 @@
    자리는 학생이 찍는 것과 같은 길(clampSpot → nudgeFree)을 거친다.
    그래서 "이만큼 모이면 이렇게 보인다"가 실제와 어긋나지 않는다.
    ════════════════════════════════════════════════════════════════ */
-import { TREE, tierHalfAt, nudgeFree, hash01, ORN_W } from './tree-layout.js';
+import { TREE, tierHalfAt, nudgeFree, hash01, ornWidthFor, TREE_CAP } from './tree-layout.js';
 import { ORNAMENT_KEYS } from './ornaments.js';
 
 const DEFAULT_N = 160;
@@ -47,14 +47,17 @@ export function demoOrnaments(n = demoCount()) {
   const taken = [];
   const out = [];
   const span = TREE.baseY - TREE.firstRowY;
+  // 크기도 실제와 같이 통수에서 뽑는다. 한 그루가 받는 수를 넘으면 전시 화면이 그루를
+  // 나누므로, 자리 간격은 한 그루에 가득 찼을 때를 기준으로 잡는다.
+  const w = ornWidthFor(Math.min(n, TREE_CAP));
 
   for (let i = 0; i < n; i++) {
     const id = 'demo-' + String(i + 1).padStart(3, '0');
     const y = TREE.firstRowY + Math.pow(hash01(id, 101), 0.65) * span;
-    const room = Math.max(0, tierHalfAt(y) - ORN_W * 0.2);
+    const room = Math.max(0, tierHalfAt(y) - w * 0.2);
     const x = 50 + (hash01(id, 100) - 0.5) * 2 * room;
     // 학생이 찍을 때와 같은 길을 거친다 — 포개지는 것만 옆으로 밀어 준다
-    const spot = nudgeFree(x, y, taken);
+    const spot = nudgeFree(x, y, taken, w);
     taken.push(spot);
     out.push({
       id,

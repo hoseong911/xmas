@@ -193,6 +193,10 @@
   transition: transform .12s ease, background .18s ease, opacity .18s ease;
 }
 .xm-btn:active { transform: scale(.975) }
+/* display를 정해 둔 탓에 hidden 속성이 먹지 않는다(브라우저 기본 규칙은 클래스에 진다).
+   이 한 줄이 없으면 숨긴 단추가 그대로 보인다 — index.html의 [처음으로]가 1단계와
+   6단계에서도 떠 있었다(2026-11-26에 발견). */
+.xm-btn[hidden] { display: none }
 /* 아직 못 누르는 버튼은 금색을 흐리게 깔지 않고 아예 색을 뺀다
    (반투명 금색은 눌리는 버튼인지 아닌지 헷갈린다). */
 .xm-btn:disabled {

@@ -81,7 +81,7 @@ export function hash01(str, salt = 0) {
  * 편지 id 목록(걸린 순서대로)을 받아 자리를 정한다.
  * @returns [{ id, x, y, w }]  x,y,w 는 viewBox 단위
  */
-export function layout(ids) {
+export function layout(ids, w = ORN_W) {
   const n = ids.length;
   const rows = rowsFor(n);
   const gap = rowGap(rows);
@@ -96,7 +96,7 @@ export function layout(ids) {
     const pitch = (2 * half) / cols;
     const x = baseX + (hash01(id, 1) - 0.5) * pitch * 0.3;
     const y = baseY + (hash01(id, 2) - 0.5) * gap * 0.34;
-    return { id, x, y, w: ORN_W };
+    return { id, x, y, w };
   });
 }
 
@@ -412,16 +412,18 @@ export function tierHalfAt(y) {
    알아보기 어려웠다.
 
    지금은 **학생이 직접 찍은 자리(x, y)를 문서에 저장한다.** 그래서
-     · 오너먼트 크기를 편지 수와 무관하게 큼직한 한 값(ORN_W)으로 고정할 수 있고,
+     · 오너먼트 크기를 통수에서 끊어 내 큼직하게 둘 수 있고,
      · 편지가 늘어도 남의 오너먼트가 움직이지 않는다("내가 저기 달았어"가 지켜진다).
-   대신 트리가 아주 빽빽해지면 서로 겹친다 — 자리를 고르게 한 이상 피할 수 없고,
-   잔뜩 꾸민 진짜 트리처럼 보여서 그대로 두기로 했다.
+   크기는 통수에 따라 조금 달라지지만(ornWidthFor) **자리는 늘 그대로다** — 움직이는
+   것과 작아지는 것은 다르다. 그래도 너무 빽빽해지면 겹치므로, 한 그루가 TREE_CAP까지
+   차면 전시 화면이 트리를 한 그루 더 띄운다.
 
    자리가 없던 시절의 문서(x, y가 없는 것)는 예전처럼 layout()이 자리를 잡아 준다.
    ════════════════════════════════════════════════════════════════ */
 
 /**
- * 오너먼트 너비(viewBox 단위).
+ * 오너먼트 **기준** 너비(viewBox 단위). 화면에 쓰는 값은 아래 ornWidthFor()가
+ * 통수에서 정한다 — 이것은 60~160통 구간에서 쓰는 가운데 값이다.
  *
  * 7에서 5.4로 줄였다(2026-11-11). 160통쯤 모인 트리를 미리 보니 오너먼트가
  * 서로 닿아 "장식을 단 트리"가 아니라 "구슬로 덮인 트리"로 보였다. 대신 트리
@@ -430,6 +432,45 @@ export function tierHalfAt(y) {
  * 트리만 키우면 빽빽한 것이 그대로 커진다 — 둘은 같이 움직여야 한다.
  */
 export const ORN_W = 5.4;
+
+/* ── 트리 한 그루가 받는 수 ──────────────────────────────────────
+   여기까지 차면 전시 화면(tree.html)이 트리를 한 그루 더 띄우고 번갈아 보여 준다.
+   학생 화면도 같은 값을 봐서 **지금 차고 있는 그루**에 자리를 고르게 한다.
+
+   **그루 번호를 문서에 적지 않는다.** 걸린 순서(createdAt)에서 셈할 수 있으므로 적어
+   둘 필요가 없고, 적어 두면 어드민에서 숨겼다 되돌릴 때 같이 챙겨야 하는 값이 하나 더
+   생긴다 — 자리(x, y)를 빠뜨려 오너먼트가 엉뚱한 데로 간 일이 있었다. */
+export const TREE_CAP = 300;
+
+/** 편지 n통이면 트리가 몇 그루인가 */
+export function pageCount(n) {
+  return Math.max(1, Math.ceil((Number(n) || 0) / TREE_CAP));
+}
+
+/* ── 통수에 따라 오너먼트 크기를 정한다 (2026-11-26) ──────────────
+   크기를 한 값으로 못 박아 두면 양 끝에서 둘 다 탈이 난다.
+     · 열 통쯤 달린 트리는 큰 화면에서 "아무도 안 썼구나"로 보인다.
+     · 삼백 통쯤 달린 트리는 가운데가 서로 덮여 자기 것을 못 찾는다.
+   그래서 적을 때는 키우고 많을 때는 줄인다. **자리(x, y)는 건드리지 않는다** —
+   크기만 변하므로 "내가 저기 달았어"는 그대로 지켜진다. 한 통 들어올 때 변하는 폭이
+   0.1%도 안 되고, `.xm-hang`의 width transition이 그 사이를 건너가므로 보이지 않는다.
+
+   2026-11-11에 탈이 났던 것은 **오너먼트가 3.5%까지 쪼그라든 것**이었다. 그래서 바닥
+   (ORN_W_MIN)을 두었고, 거기 닿을 만큼 차면 트리를 한 그루 더 띄운다(TREE_CAP). */
+export const ORN_W_MAX = 7.6;   // 적을 때 이보다 더 키우지 않는다
+export const ORN_W_MIN = 4.2;   // 많을 때 이보다 더 줄이지 않는다
+const FEW  = 60;                // 여기까지는 통수가 적을수록 크다
+const MANY = 160;               // 여기부터 줄기 시작한다(60~160통이 기준 크기 구간)
+
+/** 한 그루에 n통 달렸을 때 오너먼트 너비(viewBox 단위) */
+export function ornWidthFor(n) {
+  const k = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  const r = v => Math.round(v * 100) / 100;
+  if (k <= 1)    return ORN_W_MAX;
+  if (k <= FEW)  return r(ORN_W_MAX + (ORN_W - ORN_W_MAX) * ((k - 1) / (FEW - 1)));
+  if (k <= MANY) return ORN_W;
+  return r(ORN_W + (ORN_W_MIN - ORN_W) * Math.min(1, (k - MANY) / (TREE_CAP - MANY)));
+}
 
 /** 오너먼트 높이 — 그림이 64x80 비율이다 */
 export function ornHeight(w = ORN_W) { return w * 80 / 64; }
@@ -506,17 +547,20 @@ export function autoSpot(taken, seed = '', w = ORN_W) {
 }
 
 /**
- * 트리에 걸 것들의 자리를 정한다.
+ * 트리 한 그루에 걸 것들의 자리를 정한다.
  * 학생이 고른 자리(x, y)가 있으면 그대로 쓰고, 없는 것만 예전 방식으로 채운다.
+ * 크기는 **그 그루에 걸린 통수**로 정한다(ornWidthFor) — 그루를 나눠 부르면
+ * 각 그루가 자기 통수에 맞는 크기를 갖는다.
  * @param {{id:string, x?:number, y?:number}[]} items 걸린 순서대로
  */
 export function placeAll(items) {
+  const w = ornWidthFor(items.length);
   const legacy = items.filter(it => !Number.isFinite(it.x) || !Number.isFinite(it.y));
-  const fallback = new Map(layout(legacy.map(it => it.id)).map(p => [p.id, p]));
+  const fallback = new Map(layout(legacy.map(it => it.id), w).map(p => [p.id, p]));
   return items.map(it => {
     if (Number.isFinite(it.x) && Number.isFinite(it.y)) {
-      const c = clampSpot(it.x, it.y);
-      return { id: it.id, x: c.x, y: c.y, w: ORN_W };
+      const c = clampSpot(it.x, it.y, w);
+      return { id: it.id, x: c.x, y: c.y, w };
     }
     return fallback.get(it.id);
   });

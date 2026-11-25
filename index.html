@@ -191,7 +191,7 @@
       <!-- 5단계 — 트리에서 자리 고르기 -->
       <section class="xm-step" id="step5">
         <h1 class="xm-title">어디에 달까요</h1>
-        <p class="xm-sub">트리를 눌러 자리를 골라 주세요</p>
+        <p class="xm-sub" id="pickSub">트리를 눌러 자리를 골라 주세요</p>
         <div class="xm-panel xm-pickpanel">
           <div class="xm-picktree" id="pickWrap">
             <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" aria-label="크리스마스트리">
@@ -246,12 +246,13 @@
   </div>
 
 <script type="module">
-import { collection, doc, getDocs, query, orderBy, writeBatch, serverTimestamp }
+import { collection, doc, getDocs, getCountFromServer, query, orderBy, where, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, C_LETTERS, C_ORNAMENTS, C_TEACHERS, watchConfig, esc, studentIdLabel, mountSnow }
   from "./xmas-core.js";
 import { ORNAMENTS, ornamentSVG } from "./ornaments.js";
-import { TREE, starPath, treeArtSVG,placeAll, clampSpot, nudgeFree, autoSpot, ORN_W, ornHeight }
+import { TREE, starPath, treeArtSVG, placeAll, clampSpot, nudgeFree, autoSpot,
+         ORN_W, ornWidthFor, ornHeight, TREE_CAP }
   from "./tree-layout.js";
 import { icon } from "./shared/icons.js";
 import { containsBadWord } from "./shared/profanity.js";
@@ -267,6 +268,13 @@ const $ = s => document.querySelector(s);
 const IDLE_MS  = 150000;   // 2분 30초 동안 아무 것도 안 하면 묻는다
 const IDLE_ACK = 15;       // 물어본 뒤 기다리는 초
 const DONE_SEC = 6;        // 다 보내고 처음 화면으로 돌아가기까지
+
+/* 한 학생이 트리에 달 수 있는 편지 수 (2026-11-26).
+   한 명이 열 통씩 쓰면 전교생이 오지 않았는데도 트리가 먼저 차고, 부스 줄도 길어진다.
+   어디서 세나 — **오너먼트 컬렉션**이다. 편지 컬렉션은 내용이 들어 있어 학생 화면에서
+   못 읽는다(규칙이 막는다). 어드민에서 숨긴 편지는 오너먼트가 지워지므로 세지 않는다.
+   이 셈은 태블릿에서 하는 것이라 규칙으로 막는 담이 아니다 — 축제 부스용 울타리다. */
+const MAX_PER_STUDENT = 5;
 
 let cfg = null;
 let teachers = [];
@@ -362,11 +370,35 @@ $('#sname').addEventListener('input', e => {
 });
 $('#sname').addEventListener('keydown', e => { if (e.key === 'Enter' && !$('#go1').disabled) $('#go1').click(); });
 
-$('#go1').addEventListener('click', () => {
+/** 이 학번으로 이미 달린 편지 수. 못 세면 -1 — 막지 않는다(부스에서 학생을 세워 둘 순 없다). */
+async function countHung(sid) {
+  if (DEMO) return 0;
+  try {
+    const snap = await getCountFromServer(
+      query(collection(db, C_ORNAMENTS), where('studentId', '==', sid)));
+    return snap.data().count;
+  } catch (e) {
+    console.warn(e);
+    return -1;
+  }
+}
+
+$('#go1').addEventListener('click', async () => {
   const sid = $('#sid').value.trim();
   const nm  = $('#sname').value.trim();
   if (!SID_RE.test(sid)) { $('#sid').classList.add('bad'); $('#err1').textContent = '학번과 이름을 바르게 기입하세요.'; return; }
   if (nm.length < 2 || /\d/.test(nm) || containsBadWord(nm)) { $('#sname').classList.add('bad'); $('#err1').textContent = '학번과 이름을 바르게 기입하세요.'; return; }
+  // 편지를 다 쓰고 나서 막으면 너무 야박하다. 학번을 적은 자리에서 바로 본다.
+  const label = $('#go1').textContent;
+  $('#go1').disabled = true;
+  $('#go1').textContent = '확인 중…';
+  const hung = await countHung(sid);
+  $('#go1').textContent = label;
+  validate1();
+  if (hung >= MAX_PER_STUDENT) {
+    $('#err1').textContent = `한 사람이 ${MAX_PER_STUDENT}통까지 달 수 있어요. 이미 ${hung}통을 달았어요.`;
+    return;
+  }
   form.sid = sid; form.name = nm;
   show(2);
   $('#tq').focus();
@@ -472,8 +504,10 @@ $('#back4').addEventListener('click', () => show(3));
 /* 자리를 학생이 직접 고르므로 좌표를 문서에 저장한다. 덕분에 오너먼트를
    편지 수와 상관없이 큼직한 한 크기로 둘 수 있고, 편지가 늘어도 남이 걸어 둔
    것이 움직이지 않는다. 자세한 사정은 tree-layout.js 주석에 적어 두었다. */
-let taken = [];          // 이미 걸린 자리들 [{x, y}]
+let taken = [];          // 이미 걸린 자리들 [{x, y}] — 지금 차고 있는 그루 것만
 let treeDrawn = false;
+let pickW = ORN_W;       // 이 트리에서 쓰는 오너먼트 크기(통수에 따라 달라진다)
+let pickPage = 0;        // 몇 번째 그루에 다는가 (0부터)
 
 function drawPickTree() {
   if (treeDrawn) return;
@@ -493,15 +527,28 @@ function drawPickTree() {
   if (look !== 'paint') add('path', { d: starPath(50, 11, 8.4, 3.5), fill: '#f7d479' });   // 수채화 시안은 별이 그림 안에 있다
 }
 
-/** 이미 걸린 것들을 트리에 깔아 둔다(빈자리를 눈으로 찾게) */
-function paintTaken(items) {
+/**
+ * 이미 걸린 것들을 트리에 깔아 둔다(빈자리를 눈으로 찾게).
+ *
+ * 트리가 여러 그루면 **지금 차고 있는 그루**만 깐다. 전시 화면도 그루를 나눠
+ * 번갈아 보여 주므로(tree.html), 학생이 찍는 자리는 그 그루 안의 자리다.
+ * 그루 번호는 걸린 순서에서 셈한다 — 문서에 적지 않는다(tree-layout.js 참고).
+ */
+function paintTaken(all) {
+  pickPage = Math.floor(all.length / TREE_CAP);
+  const items = all.slice(pickPage * TREE_CAP);
   const placed = placeAll(items);
+  // 깔아 둔 것과 내 오너먼트(ghost)가 같은 크기여야 "여기 들어가네"가 맞는다
+  pickW = ornWidthFor(items.length);
   taken = placed.map(p => ({ x: p.x, y: p.y }));
   const byId = new Map(items.map(it => [it.id, it]));
   $('#pickOrns').innerHTML = placed.map(p =>
     `<div class="xm-hang" style="left:${p.x}%;top:${(p.y / TREE.vbH * 100)}%;width:${p.w}%">
        <span class="xm-sway">${ornamentSVG(byId.get(p.id).ornament, 64)}</span>
      </div>`).join('');
+  $('#pickSub').textContent = pickPage
+    ? `트리를 눌러 자리를 골라 주세요 (${pickPage + 1}번째 트리)`
+    : '트리를 눌러 자리를 골라 주세요';
 }
 
 /** 이미 걸린 오너먼트를 불러온다 */
@@ -514,6 +561,8 @@ async function loadTaken() {
     // 못 불러와도 자리는 고를 수 있어야 한다(겹칠 뿐이다)
     console.warn(e);
     taken = [];
+    pickW = ORN_W;
+    pickPage = 0;
     $('#pickOrns').innerHTML = '';
   }
 }
@@ -525,7 +574,7 @@ function paintGhost() {
   g.hidden = false;
   g.style.left = form.x + '%';
   g.style.top = (form.y / TREE.vbH * 100) + '%';
-  g.style.width = ORN_W + '%';
+  g.style.width = pickW + '%';
   g.innerHTML = ornamentSVG(form.ornament, 64);
   // 다시 찍을 때마다 톡 하고 내려앉게
   g.style.animation = 'none';
@@ -539,7 +588,7 @@ function pickAt(clientX, clientY) {
   const vx = ((clientX - r.left) / r.width) * 100;
   const vy = ((clientY - r.top) / r.height) * TREE.vbH;
   // 찍은 자리를 가지 안으로 끌어오고, 이미 걸린 것과 겹치면 옆으로 밀어 준다
-  const spot = nudgeFree(vx, vy, taken);
+  const spot = nudgeFree(vx, vy, taken, pickW);
   form.x = +spot.x.toFixed(2);
   form.y = +spot.y.toFixed(2);
   $('#err5').textContent = '';
@@ -553,7 +602,7 @@ $('#pickWrap').addEventListener('pointerdown', e => {
 });
 
 $('#anySpot').addEventListener('click', () => {
-  const spot = autoSpot(taken, form.sid + form.body.slice(0, 12) + Date.now());
+  const spot = autoSpot(taken, form.sid + form.body.slice(0, 12) + Date.now(), pickW);
   form.x = +spot.x.toFixed(2);
   form.y = +spot.y.toFixed(2);
   $('#err5').textContent = '';
