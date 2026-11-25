@@ -43,9 +43,9 @@
     radial-gradient(1.2px 1.2px at 35% 44%, #fff, transparent),
     radial-gradient(1.6px 1.6px at 69% 40%, #fff, transparent),
     radial-gradient(1.3px 1.3px at 93% 47%, #fff, transparent);
-  animation: xm-twinkle 5.5s ease-in-out infinite alternate;
+  animation: xm-skytwinkle 5.5s ease-in-out infinite alternate;
 }
-@keyframes xm-twinkle { from { opacity:.45 } to { opacity:.95 } }
+@keyframes xm-skytwinkle { from { opacity:.45 } to { opacity:.95 } }
 
 /* ── 밤하늘의 동양중학교 ──────────────────────────────────────
    학교 사진에서 하늘을 뚫고 밤으로 내린 그림(img/campus-night.webp).
@@ -402,9 +402,9 @@
    다시 칠해야 해서 160개면 메인 스레드에서 가장 비싼 일이 된다. 절반 남짓만 켜도
    박자가 제각각이라 눈에는 똑같이 반짝이고, 값은 절반이다. */
 .xm-hang.tw .xm-sway > svg {
-  animation: xm-twinkle var(--tw, 3.6s) ease-in-out infinite;
+  animation: xm-ornglow var(--tw, 3.6s) ease-in-out infinite;
 }
-@keyframes xm-twinkle {
+@keyframes xm-ornglow {
   0%, 100% { filter: brightness(.88) saturate(.92) }
   50%      { filter: brightness(1.42) saturate(1.28) }
 }
@@ -441,6 +441,10 @@
 }
 
 /* ── 반짝임 ───────────────────────────────────────────────────
+   **@keyframes 이름은 파일 전체에서 하나뿐이어야 한다.** 겹치면 나중에 쓴 것이
+   앞의 것을 통째로 덮어쓰고, 오류도 안 나서 못 알아챈다 — 실제로 이 파일에
+   xm-twinkle이 셋(밤하늘 별, 오너먼트, 여기)이라 오너먼트가 깜빡 사라졌다
+   (2026-11-25). 그래서 이름을 xm-skytwinkle / xm-ornglow / xm-startwinkle로 갈랐다.
    꼭대기 별(tree.html)과 트리 전체(tree-layout.js의 glintLights)가 같이 쓴다.
    7.2초에 한 번, 천천히 번졌다 사라진다. 켜져 있는 구간이 전체의 3분의 1쯤이라
    트리에 스무 개를 뿌려 두면 늘 여섯 개쯤만 켜져 있다.
@@ -458,8 +462,8 @@
    돌리지 않고, 뜨고 지는 데 시간을 더 준다. 밝기는 밤하늘 별만 한 크기라
    거의 끝까지 올려도 번쩍이지 않는다 — 번쩍여 보이게 하는 것은 밝기가 아니라
    크기와 도는 움직임이었다. */
-.xm-twinkle { animation: xm-twinkle 7.2s ease-in-out infinite }
-@keyframes xm-twinkle {
+.xm-twinkle { animation: xm-startwinkle 7.2s ease-in-out infinite }
+@keyframes xm-startwinkle {
   0%, 56% { opacity: 0; transform: scale(.6) }
   76%     { opacity: .88; transform: scale(1) }
   94%     { opacity: 0; transform: scale(.78) }
