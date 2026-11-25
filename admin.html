@@ -446,7 +446,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./shared/firebase-config.js";
 import {
-  C_LETTERS, C_ORNAMENTS, C_TEACHERS, C_PINS,
+  C_LETTERS, C_ORNAMENTS, C_TEACHERS, C_PINS, BODY_HARD_MAX,
   loadConfig, DEFAULT_CONFIG, esc, nl2br, studentIdLabel, fmtDateTime
 } from "./xmas-core.js";
 import { ornamentSVG, ornamentName } from "./ornaments.js";
@@ -1172,7 +1172,9 @@ $('#clearOpenAt').addEventListener('click', async () => {
 });
 $('#setSave').addEventListener('click', async () => {
   const min = Math.max(1, Number($('#setMin').value) || DEFAULT_CONFIG.minLen);
-  const max = Math.max(min + 10, Number($('#setMax').value) || DEFAULT_CONFIG.maxLen);
+  // 보안 규칙이 2000자에서 막으므로 그 위로는 못 올린다(올리면 학생이 못 보낸다)
+  const max = Math.min(BODY_HARD_MAX,
+    Math.max(min + 10, Number($('#setMax').value) || DEFAULT_CONFIG.maxLen));
   try {
     await saveCfg({
       title: $('#setTitle').value.trim() || DEFAULT_CONFIG.title,

@@ -59,12 +59,17 @@ export const DEFAULT_CONFIG = {
   maxLen: 400,     // 편지 최대 글자 수
 };
 
+/* 보안 규칙(firestore.rules의 xmas_letters)이 본문을 2000자에서 막는다.
+   어드민에서 이보다 크게 잡아 두면 학생은 다 쓰고 나서야 "지금은 달 수 없어요"를
+   보고 **영영 못 보낸다**. 그래서 읽을 때 한 번 더 깎는다 — 규칙을 고치면 여기도 고칠 것. */
+export const BODY_HARD_MAX = 2000;
+
 const CFG_REF = () => doc(db, 'settings', 'xmas_config');
 
 export function normalizeConfig(raw) {
   const c = Object.assign({}, DEFAULT_CONFIG, raw || {});
   c.minLen = Number(c.minLen) || DEFAULT_CONFIG.minLen;
-  c.maxLen = Number(c.maxLen) || DEFAULT_CONFIG.maxLen;
+  c.maxLen = Math.min(Number(c.maxLen) || DEFAULT_CONFIG.maxLen, BODY_HARD_MAX);
   c.closed = !!c.closed;
   c.openAt = typeof c.openAt === 'string' ? c.openAt.trim() : '';
   return c;

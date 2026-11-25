@@ -27,12 +27,23 @@ const DEFAULT_BAD_WORDS = [
      들어 주셨어요"가 통째로 막혀 학생이 왜 안 되는지 모르고 포기한다. */
   "미친놈","미친년","미친새","미칀","엠창","ㅁㅊ",
   "쌔끼","섀끼","ㅅㄲ","이새끼","저새끼","니새끼","새끼야",
-  "꺼져","꺼지","죽어라","죽어버","죽여버","뒤져","뒈져","뒤지","뒈지",
-  "창녀","창년","걸레","보지","자지",
+  /* 아래 다섯 줄은 2026-11-25에 좁혔다. 감사편지를 받는 앱이라 **잘못 막는 것이
+     놓치는 것보다 아프다** — 학생에게는 "쓸 수 없는 말이 있어요"라고만 뜨고 어느
+     말인지 안 알려 주므로, 300자 편지에서 찾아내지 못하고 그냥 포기한다.
+     실제로 막히던 말: "꺼지지 않는 열정", "책을 뒤지며", "죽어라 공부했더니",
+     "다시 보지 못해서", "자지 않고 공부했어요", "멍청이 같은 질문을 해도". */
+  "꺼져라","꺼지라","꺼져버려",
+  "죽어버","죽여버",
+  "뒈져","뒈지","뒤져라","뒤질래","뒤져버",
+  "창녀","창년","걸레",
+  /* 이 둘은 욕이기도 하고 '보다/자다'의 한 토막이기도 하다. 뒤에 어미가 붙으면 욕이
+     아니다("보지 못해", "보지만", "자지 않고", "자지러지게"). 사전은 정규식도 받는다. */
+  /보지(?!않|못|마|만|말|는|도|라|러|요|무)/,
+  /자지(?!않|못|마|만|말|는|도|라|러|요|무)/,
   "강간","성폭","성추","닥쳐","닥ㅊ",
   "느금마","느그엄마","니애미","니에미","니엄마",
   "존나","ㅈㄴ","좆","좆같","좋같","ㅈㅈ",
-  "빡대가리","찐따","머저리","멍청아","멍청이",
+  "빡대가리","찐따","머저리","멍청아",
   "ㅗㅗ","개같","개 같",
   // 영어
   "fuck","shit","bitch","asshole","bastard"
@@ -52,11 +63,16 @@ let _normalizedCache = null;
  * @param {string} text
  * @returns {boolean}
  */
+/** 사전 한 칸과 맞는지 본다. 글자면 부분일치, 정규식이면 그대로 시험한다. */
+function _hit(entry, text) {
+  return entry instanceof RegExp ? entry.test(text) : text.includes(entry);
+}
+
 export function containsBadWord(text) {
   if (!text) return false;
   const normalized = String(text).replace(/\s/g, '').toLowerCase();
   if (!_normalizedCache) _buildCache();
-  return _normalizedCache.some(w => normalized.includes(w));
+  return _normalizedCache.some(w => _hit(w, normalized));
 }
 
 /**
@@ -67,7 +83,8 @@ export function findBadWord(text) {
   if (!text) return null;
   const normalized = String(text).replace(/\s/g, '').toLowerCase();
   if (!_normalizedCache) _buildCache();
-  return _wordList.find((w, i) => normalized.includes(_normalizedCache[i])) || null;
+  const w = _wordList.find((_, i) => _hit(_normalizedCache[i], normalized));
+  return w == null ? null : (w instanceof RegExp ? w.source : w);
 }
 
 /**
@@ -100,5 +117,6 @@ export function getBadWords() {
 
 // ────────────────────────────────────────────────────────────
 function _buildCache() {
-  _normalizedCache = _wordList.map(w => w.toLowerCase().replace(/\s/g, ''));
+  _normalizedCache = _wordList.map(w =>
+    w instanceof RegExp ? w : String(w).toLowerCase().replace(/\s/g, ''));
 }

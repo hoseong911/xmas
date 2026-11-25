@@ -311,13 +311,36 @@ test('학번: 학년 1~3, 반 01~06, 번호 01~30만 통과한다', () => {
     assert.ok(!re.test(no), `${no}은 막아야 한다`);
 });
 
+test('설정: 편지 길이 상한은 보안 규칙(2000자)을 못 넘는다', () => {
+  /* 어드민에서 더 크게 잡아 두면 학생은 다 쓰고 나서 "지금은 달 수 없어요"만 보고
+     영영 못 보낸다 — 규칙이 2000자에서 막는데 화면은 그걸 모른다(2026-11-25).
+     (xmas-core.js는 Firebase를 https로 불러와 node가 import하지 못하므로 글로 본다.) */
+  const core = readFileSync(new URL('../xmas-core.js', import.meta.url), 'utf8');
+  assert.ok(core.includes('BODY_HARD_MAX = 2000'), '규칙과 같은 상한값이 있어야 한다');
+  assert.ok(core.includes('Math.min(Number(c.maxLen) || DEFAULT_CONFIG.maxLen, BODY_HARD_MAX)'),
+    '설정을 읽을 때 상한으로 깎아야 한다');
+  const admin = readFileSync(new URL('../admin.html', import.meta.url), 'utf8');
+  assert.ok(admin.includes('Math.min(BODY_HARD_MAX,'), '어드민이 상한 위로 저장하면 안 된다');
+});
+
+test('공용 태블릿: 편지를 들고 있는 화면은 자리를 비우면 지워진다', () => {
+  /* 5단계(자리 고르기)는 편지를 다 쓴 화면이다. 여기서 시계를 안 걸어 두면 학생이
+     자리를 뜬 뒤 다음 사람이 **앞사람 이름으로 앞사람 편지를** 달아 버린다
+     (2026-11-25에 실제로 그랬다). 1단계는 빈 화면, 6단계는 따로 시계가 돈다. */
+  const src = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(src.includes('if (step === 1 || step === 6) return;'),
+    '자리 비움 시계를 거르는 화면은 1단계와 6단계뿐이어야 한다');
+});
+
 /* 비속어 사전. 이 앱은 감사편지를 받으므로 "잘못 막는 것"이 "놓치는 것"보다 아프다
    (부스에서 학생이 왜 안 되는지 모르고 포기한다). 양쪽을 다 지켜본다. */
 test('비속어: 욕은 막고, 감사편지에 흔한 말은 통과한다', async () => {
   const { containsBadWord, findBadWord } = await import('../shared/profanity.js');
 
   for (const bad of ['선생님 씨발 뭐냐', 'ㅅ ㅂ 진짜', '개새끼', 'ㅂㅅ', '존나 짜증',
-                     '미친놈', '이 새끼', '죽어라', '멍청아', '닥쳐', 'fuck you'])
+                     '미친놈', '이 새끼', '멍청아', '닥쳐', 'fuck you',
+                     // 좁힌 말들도 욕으로 쓰면 여전히 막힌다(2026-11-25)
+                     '죽어버려', '꺼져라', '뒈져라', '뒤져라', '보지가 어쩌고', '자지를 어쩌고'])
     assert.ok(containsBadWord(bad), `막아야 한다: ${bad}`);
 
   for (const ok of ['선생님, 올 한 해 정말 고마웠습니다.',
@@ -326,6 +349,17 @@ test('비속어: 욕은 막고, 감사편지에 흔한 말은 통과한다', asy
                     '제가 멍청한 질문을 해도 다 들어 주셨어요',
                     '새끼손가락 걸고 약속할게요',
                     '미치게 보고 싶을 거예요',
-                    '졸업해도 잊지 않을게요'])
+                    '졸업해도 잊지 않을게요',
+                    /* 2026-11-25에 실제로 막히던 말들. 학생에게는 어느 말이 걸렸는지
+                       안 알려 주므로, 한 번 막히면 고치지 못하고 포기한다. */
+                    '죽어라 공부했더니 성적이 올랐어요',
+                    '선생님의 열정은 꺼지지 않는 불꽃 같았습니다',
+                    '서랍을 뒤져 보니 선생님 편지가 있었어요',
+                    '도서관에서 책을 뒤지며 자료를 찾던 날',
+                    '선생님을 다시 보지 못해서 아쉬워요',
+                    '선생님 얼굴을 못 보지만 늘 생각해요',
+                    '밤에 자지 않고 공부했어요',
+                    '자지러지게 웃었던 수업이 기억나요',
+                    '제가 멍청이 같은 질문을 해도 웃어 주셨어요'])
     assert.ok(!containsBadWord(ok), `통과해야 한다: ${ok} (걸린 말: ${findBadWord(ok)})`);
 });

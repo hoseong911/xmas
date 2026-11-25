@@ -663,7 +663,11 @@ let idleTimer = null, ackTimer = null;
 function bumpIdle() {
   clearTimeout(idleTimer);
   closeIdleAsk();
-  if (step === 1 || step === 5) return;   // 쓰던 내용이 없는 화면은 그냥 둔다
+  /* 1단계는 아직 아무것도 안 적은 화면이고, 6단계는 따로 돌아가기 시계(DONE_SEC)가 돈다.
+     **5단계를 여기 넣지 말 것**(2026-11-25에 그래서 탈이 났다) — 편지를 다 쓰고 자리만
+     고르는 화면이라, 학생이 그대로 자리를 뜨면 다음 사람이 앞사람 이름으로 앞사람 편지를
+     달아 버린다. 자리를 고르는 동안에는 손가락이 화면에 닿을 때마다 시계가 되감긴다. */
+  if (step === 1 || step === 6) return;
   idleTimer = setTimeout(askIdle, IDLE_MS);
 }
 function askIdle() {
