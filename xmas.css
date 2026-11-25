@@ -448,9 +448,20 @@
 
    **SVG 안에서 transform을 쓸 때는 transform-box: fill-box를 꼭 같이 적는다.**
    안 적으면 SVG 전체 좌표를 기준으로 커져 반짝임이 화면 밖으로 날아간다. */
-.xm-glint {
-  transform-box: fill-box; transform-origin: center; opacity: 0;
-  animation: xm-glint 7.2s ease-in-out infinite;
+.xm-glint, .xm-twinkle { transform-box: fill-box; transform-origin: center; opacity: 0 }
+
+/* 꼭대기 별. 한 번에 하나만, 또렷하게 번쩍인다. */
+.xm-glint { animation: xm-glint 7.2s ease-in-out infinite }
+
+/* 트리에 뿌리는 반짝임. 별과 **일부러 다르게** 둔다 — 별 것을 그대로 쓰니 서른 개가
+   저마다 번쩍거려 눈이 아팠다(2026-11-25 "번쩍거리는 느낌 말고 반짝거리는 느낌으로").
+   돌리지 않고, 끝까지 밝히지 않고(0.72), 뜨고 지는 데 시간을 더 준다. */
+.xm-twinkle { animation: xm-twinkle 7.2s ease-in-out infinite }
+@keyframes xm-twinkle {
+  0%, 56% { opacity: 0; transform: scale(.6) }
+  76%     { opacity: .72; transform: scale(1) }
+  94%     { opacity: 0; transform: scale(.78) }
+  100%    { opacity: 0; transform: scale(.6) }
 }
 @keyframes xm-glint {
   0%, 66% { opacity: 0; transform: scale(.4) rotate(-12deg) }

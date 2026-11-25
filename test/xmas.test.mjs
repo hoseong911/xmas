@@ -147,14 +147,14 @@ test('treeArtSVG: 그림자는 아래 단에만 오려 붙이고, 전구 줄은 
   const p = treeArtSVG({ paint: true });
   assert.ok(!/NaN|undefined/.test(p));
   assert.ok(!/xtBulb/.test(p));                                    // 전구 알은 없다
-  assert.ok(!/xm-glint/.test(treeArtSVG({ paint: true, lights: false })));
+  assert.ok(!/xm-twinkle/.test(treeArtSVG({ paint: true, lights: false })));
 
   /* 켜져 있는 구간이 한 바퀴의 5분의 1쯤이라, 스물 몇 개는 돼야 늘 대여섯 개가
      켜져 있다. 적으면 한동안 트리가 캄캄해진다. */
   const spots = [...p.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="[\d.]+" fill="url\(#xtGlint\)"\/>/g)]
     .map(m => [Number(m[1]), Number(m[2])]);
   assert.ok(spots.length >= 25, `빛줄기가 ${spots.length}개뿐이다`);
-  assert.equal((p.match(/class="xm-glint"/g) || []).length, spots.length);
+  assert.equal((p.match(/class="xm-twinkle"/g) || []).length, spots.length);
 
   // 자리마다 박자가 달라야 한꺼번에 켜지지 않는다
   assert.ok(new Set(p.match(/animation-delay:-[0-9.]+s/g)).size >= spots.length - 1);

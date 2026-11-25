@@ -328,7 +328,7 @@ function paintedTreeSVG({ lights = true } = {}) {
    (2026-11-25 "전구도 반짝이도 별로야, 별에 있는 반짝이는 효과를 트리에도 작게 여러 개").
    가늘고 긴 빛줄기가 천천히 번졌다 사라진다. 자리마다 박자를 어긋나게 줘서 늘 몇 개만
    켜져 있다 — 한꺼번에 켜지면 전구 스위치가 되고, 하나씩이면 트리가 비어 보인다.
-   움직임은 xmas.css의 .xm-glint가 맡는다(별과 한 벌이다). */
+   움직임은 xmas.css의 .xm-twinkle이 맡는다(별의 .xm-glint보다 순하다). */
 
 /** 빛줄기 자리 [x, y, 크기]. 난수로 두면 새로고침마다 바뀌어 어수선하므로 한 번만 셈해 둔다.
     개수가 적으면 한동안 트리에 아무것도 안 켜져 있다 — 켜져 있는 구간이 한 바퀴의
@@ -356,21 +356,24 @@ export function rayPath(cx, cy, r, w) {
 }
 
 function glintLights() {
+  /* 거의 흰빛이다. 진한 금빛으로 두니 트리에 금단추를 단 것 같았다(2026-11-25).
+     다만 아주 옅은 따뜻한 기를 남겨야 연한 민트 가지 위에서 형체가 보인다 —
+     순백으로 두면 그냥 묻힌다(해 봤다). */
   const defs = '<radialGradient id="xtGlint">'
-    + '<stop offset="0" stop-color="#fffdf2"/>'
-    + '<stop offset=".3" stop-color="#ffc85a" stop-opacity=".8"/>'
-    + '<stop offset="1" stop-color="#ff9f2e" stop-opacity="0"/></radialGradient>';
+    + '<stop offset="0" stop-color="#ffffff"/>'
+    + '<stop offset=".32" stop-color="#fff4d2" stop-opacity=".5"/>'
+    + '<stop offset="1" stop-color="#ffe6a8" stop-opacity="0"/></radialGradient>';
   let body = '';
   GLINTS.forEach(([x, y, s], i) => {
     /* 길이(초)를 자리마다 조금씩 달리 줘야 시간이 갈수록 박자가 더 흐트러진다.
        다 같으면 처음 어긋나게 줘도 한 바퀴 뒤에 똑같은 무늬가 돌아온다. */
     const dur = (6 + (i % 5) * 0.6).toFixed(1);
     const delay = (i * 7.2 / GLINTS.length).toFixed(2);
-    const len = s * 2.6;
-    body += `<g class="xm-glint" style="animation-duration:${dur}s;animation-delay:-${delay}s">`
-      + `<circle cx="${x}" cy="${y}" r="${(s * 2.6).toFixed(2)}" fill="url(#xtGlint)"/>`
-      + `<path d="${rayPath(x, y, len, 0.15)}" fill="#ffeeb8"/>`
-      + `<path d="${rayPath(x, y, len * 0.42, 0.1)}" fill="#ffe09a" fill-opacity=".7" transform="rotate(45 ${x} ${y})"/>`
+    const len = s * 1.9;
+    body += `<g class="xm-twinkle" style="animation-duration:${dur}s;animation-delay:-${delay}s">`
+      + `<circle cx="${x}" cy="${y}" r="${(s * 1.6).toFixed(2)}" fill="url(#xtGlint)"/>`
+      + `<path d="${rayPath(x, y, len, 0.11)}" fill="#fffdf6"/>`
+      + `<path d="${rayPath(x, y, len * 0.42, 0.08)}" fill="#fff8e4" fill-opacity=".6" transform="rotate(45 ${x} ${y})"/>`
       + '</g>';
   });
   return { defs, body };
