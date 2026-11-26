@@ -120,3 +120,19 @@ function _buildCache() {
   _normalizedCache = _wordList.map(w =>
     w instanceof RegExp ? w : String(w).toLowerCase().replace(/\s/g, ''));
 }
+
+/**
+ * 뜻이 있는 글자 수. 편지 최소 길이를 재는 데 쓴다.
+ * 공백과 "ㅋㅋㅋ·ㅎㅎ·ㅠㅠ" 처럼 홀로 쓴 자모는 세지 않고,
+ * 같은 글자를 세 번 넘게 이은 것("!!!!!", "하하하하")은 한 번으로 셈한다.
+ * @param {string} text
+ * @returns {number}
+ */
+export function meaningfulLen(text) {
+  if (!text) return 0;
+  return String(text)
+    .replace(/[ᄀ-ᇿ㄰-㆏ꥠ-꥿ힰ-퟿]/gu, '')
+    .replace(/\s/gu, '')
+    .replace(/(.)\1{2,}/gu, '$1')
+    .length;
+}

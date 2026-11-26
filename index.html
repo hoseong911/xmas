@@ -248,14 +248,15 @@
 <script type="module">
 import { collection, doc, getDocs, getCountFromServer, query, orderBy, where, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { db, C_LETTERS, C_ORNAMENTS, C_TEACHERS, watchConfig, esc, studentIdLabel, mountSnow }
+import { db, C_LETTERS, C_ORNAMENTS, C_TEACHERS, watchConfig, esc, studentIdLabel, mountSnow,
+         MIN_LEN_FLOOR }
   from "./xmas-core.js";
 import { ORNAMENTS, ornamentSVG } from "./ornaments.js";
 import { TREE, starPath, treeArtSVG, placeAll, clampSpot, nudgeFree, autoSpot,
          ORN_W, ornWidthFor, ornHeight, TREE_CAP }
   from "./tree-layout.js";
 import { icon } from "./shared/icons.js";
-import { containsBadWord } from "./shared/profanity.js";
+import { containsBadWord, meaningfulLen } from "./shared/profanity.js";
 import { demoCount, demoOrnaments, demoTeachers, mountDemoBadge } from "./demo-data.js";
 
 const $ = s => document.querySelector(s);
@@ -458,15 +459,14 @@ $('#go2').addEventListener('click', () => {
 });
 
 // ── 3단계: 편지 쓰기 ──────────────────────────────────────────
-const noSpace = s => s.replace(/\s/g, '').length;
 
 function renderCount() {
   const max = cfg ? cfg.maxLen : 400;
-  const min = cfg ? cfg.minLen : 20;
+  const min = cfg ? cfg.minLen : MIN_LEN_FLOOR;
   const v = $('#body').value;
   $('#count').textContent = `${v.length} / ${max}`;
   $('#count').classList.toggle('over', v.length > max);
-  $('#go3').disabled = !(noSpace(v) >= min && v.length <= max);
+  $('#go3').disabled = !(meaningfulLen(v) >= min && v.length <= max);
 }
 $('#body').addEventListener('input', () => { $('#err3').textContent = ''; renderCount(); });
 

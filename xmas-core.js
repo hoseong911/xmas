@@ -50,12 +50,16 @@ export const XMAS_FN_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunct
 
 // ── 설정 ────────────────────────────────────────────────────────
 
+/* 의미 없는 편지("ㅋㅋㅋㅋ" 한 줄)를 막으려고 하한을 둔다. 어드민에서 이보다 낮출 수
+   없게 바닥을 박아 뒀다 — 낮추면 부스에서 장난 편지가 트리를 채운다. */
+export const MIN_LEN_FLOOR = 50;
+
 export const DEFAULT_CONFIG = {
   title:  '내 트리를 꾸며줘!',
   sub:    '마음을 적어 트리에 달아 주세요',
   openAt: '',      // 'YYYY-MM-DD' — 선생님이 편지를 읽을 수 있게 되는 날(한국 시간 0시). 비우면 바로 열린다.
   closed: false,   // 편지 받기 중단
-  minLen: 20,      // 편지 최소 글자 수(공백 제외)
+  minLen: MIN_LEN_FLOOR,  // 편지 최소 글자 수(공백과 ㅋㅋㅋ 같은 홀로 쓴 자모는 안 센다)
   maxLen: 400,     // 편지 최대 글자 수
 };
 
@@ -68,7 +72,7 @@ const CFG_REF = () => doc(db, 'settings', 'xmas_config');
 
 export function normalizeConfig(raw) {
   const c = Object.assign({}, DEFAULT_CONFIG, raw || {});
-  c.minLen = Number(c.minLen) || DEFAULT_CONFIG.minLen;
+  c.minLen = Math.max(MIN_LEN_FLOOR, Number(c.minLen) || DEFAULT_CONFIG.minLen);
   c.maxLen = Math.min(Number(c.maxLen) || DEFAULT_CONFIG.maxLen, BODY_HARD_MAX);
   c.closed = !!c.closed;
   c.openAt = typeof c.openAt === 'string' ? c.openAt.trim() : '';

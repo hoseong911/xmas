@@ -411,3 +411,34 @@ test('비속어: 욕은 막고, 감사편지에 흔한 말은 통과한다', asy
                     '제가 멍청이 같은 질문을 해도 웃어 주셨어요'])
     assert.ok(!containsBadWord(ok), `통과해야 한다: ${ok} (걸린 말: ${findBadWord(ok)})`);
 });
+
+/* 편지 하한. "ㅋㅋㅋㅋㅋㅋ"로 50자를 채워 넘기는 길을 막는 것이 요점이다. */
+test('편지 하한: 뜻 있는 글자만 50자로 세고, 홀로 쓴 자모와 반복은 안 센다', async () => {
+  const { meaningfulLen } = await import('../shared/profanity.js');
+  const MIN_LEN_FLOOR = 50;
+
+  assert.equal(meaningfulLen(''), 0);
+  assert.equal(meaningfulLen('ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ ㅎㅎㅎㅎㅎ ㅠㅠ ㅡㅡ'), 0);
+  assert.equal(meaningfulLen('!!!!!!!!!!'), 1);                 // 같은 글자 반복은 한 번
+  assert.equal(meaningfulLen('선생님 감사합니다'), 8);          // 공백만 뺀다
+  assert.equal(meaningfulLen('감사합니다ㅋㅋㅋ'), 5);
+
+  const 장난 = 'ㅋ'.repeat(80);
+  const 진짜 = '선생님, 한 해 동안 가르쳐 주셔서 정말 고맙습니다. 수업 시간이 늘 기다려졌어요. '
+            + '내년에도 건강하시고, 저 잊지 말아 주세요. 또 찾아뵙겠습니다.';
+  assert.ok(meaningfulLen(장난) < MIN_LEN_FLOOR, '초성만 채운 편지는 통과하면 안 된다');
+  assert.ok(meaningfulLen(진짜) >= MIN_LEN_FLOOR, '보통 길이의 감사편지는 통과해야 한다');
+
+  /* 바닥값과 어드민에서 낮춰 저장하는 길을 막은 것은 글로 본다
+     (xmas-core.js는 Firebase를 https로 불러와 node가 import하지 못한다). */
+  const core = readFileSync(new URL('../xmas-core.js', import.meta.url), 'utf8');
+  assert.ok(core.includes('MIN_LEN_FLOOR = ' + MIN_LEN_FLOOR), '바닥값이 ' + MIN_LEN_FLOOR + '이어야 한다');
+  assert.ok(core.includes('Math.max(MIN_LEN_FLOOR, Number(c.minLen)'), '설정을 읽을 때 바닥으로 올려야 한다');
+  const admin = readFileSync(new URL('../admin.html', import.meta.url), 'utf8');
+  assert.ok(admin.includes("Math.max(MIN_LEN_FLOOR,"), '어드민이 바닥 아래로 저장하면 안 된다');
+});
+
+test('편지 하한: 학생 화면이 그 셈법을 쓴다', () => {
+  const src = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(src.includes('meaningfulLen(v) >= min'), 'index.html이 meaningfulLen으로 재야 한다');
+});
