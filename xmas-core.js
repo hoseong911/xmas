@@ -52,7 +52,7 @@ export const XMAS_FN_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunct
 
 /* 의미 없는 편지("ㅋㅋㅋㅋ" 한 줄)를 막으려고 하한을 둔다. 어드민에서 이보다 낮출 수
    없게 바닥을 박아 뒀다 — 낮추면 부스에서 장난 편지가 트리를 채운다. */
-export const MIN_LEN_FLOOR = 50;
+export const MIN_LEN_FLOOR = 30;
 
 export const DEFAULT_CONFIG = {
   title:  '내 트리를 꾸며줘!',

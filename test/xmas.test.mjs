@@ -412,10 +412,10 @@ test('비속어: 욕은 막고, 감사편지에 흔한 말은 통과한다', asy
     assert.ok(!containsBadWord(ok), `통과해야 한다: ${ok} (걸린 말: ${findBadWord(ok)})`);
 });
 
-/* 편지 하한. "ㅋㅋㅋㅋㅋㅋ"로 50자를 채워 넘기는 길을 막는 것이 요점이다. */
-test('편지 하한: 뜻 있는 글자만 50자로 세고, 홀로 쓴 자모와 반복은 안 센다', async () => {
+/* 편지 하한. "ㅋㅋㅋㅋㅋㅋ"로 30자를 채워 넘기는 길을 막는 것이 요점이다. */
+test('편지 하한: 뜻 있는 글자만 30자로 세고, 홀로 쓴 자모와 반복은 안 센다', async () => {
   const { meaningfulLen } = await import('../shared/profanity.js');
-  const MIN_LEN_FLOOR = 50;
+  const MIN_LEN_FLOOR = 30;
 
   assert.equal(meaningfulLen(''), 0);
   assert.equal(meaningfulLen('ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ ㅎㅎㅎㅎㅎ ㅠㅠ ㅡㅡ'), 0);
