@@ -222,8 +222,11 @@ async function openLetters() {
       return;
     }
     cfg = await loadConfig();
+    saveSession(data);
+    /* 번호가 맞으면 바로 트리로 보낸다 — 선생님께 기본으로 보여 드리는 것은
+       자기 편지만 달린 트리다. 모아 읽기는 그 화면에서 다시 들어온다. */
     if (data.locked) renderSealed(data);
-    else renderLetters(data);
+    else goTree();
   } catch (e) {
     console.error(e);
     $('#pinErr').textContent = '지금은 열 수 없어요. 잠시 뒤 다시 해 주세요.';
@@ -233,11 +236,24 @@ async function openLetters() {
   }
 }
 
-/** 트리로 넘어갈 때 내 편지 id를 같은 탭에만 남긴다(트리 화면이 그것만 빛나게 한다) */
-function goTree(ids) {
-  sessionStorage.setItem('xmas_mine', JSON.stringify({ name: picked.name, ids }));
-  location.href = 'tree.html';
+/* 번호를 맞힌 뒤의 상태는 같은 탭에만 남긴다(sessionStorage).
+   그래서 새로고침해도 처음 화면으로 돌아가지 않고, 탭을 닫으면 저절로 지워진다.
+   트리 화면도 같은 값을 읽어 그 선생님께 온 편지만 보여 준다. */
+const SKEY = 'xmas_mine';
+
+function saveSession(data) {
+  const letters = data.letters || [];
+  sessionStorage.setItem(SKEY, JSON.stringify({
+    teacherId: picked.id,
+    name: picked.name,
+    ids: data.letterIds || letters.map(l => l.id),
+    letters,
+    locked: !!data.locked,
+    count: data.count || letters.length,
+  }));
 }
+
+function goTree() { location.href = 'tree.html'; }
 
 // ── 아직 열리지 않았을 때 ─────────────────────────────────────
 function renderSealed(data) {
@@ -253,7 +269,7 @@ function renderSealed(data) {
     $('#sealWhen').textContent = when ? `편지는 ${when}부터 읽을 수 있어요.` : '';
   }
   $('#sealTree').hidden = !n;
-  $('#sealTree').onclick = () => goTree(data.letterIds || []);
+  $('#sealTree').onclick = () => goTree();
   show('#stepSealed');
 }
 $('#sealOut').addEventListener('click', signOut);
@@ -265,7 +281,7 @@ function renderLetters(data) {
     `${esc(picked.name)} 선생님께 온 편지 ${list.length}통` +
     `<small>학생들이 직접 쓴 글이에요</small>`;
   $('#readTree').hidden = !list.length;
-  $('#readTree').onclick = () => goTree(list.map(l => l.id));
+  $('#readTree').onclick = () => goTree();
   $('#readEmpty').hidden = list.length > 0;
   $('#letters').innerHTML = list.map(l => `
     <article class="xm-letter">
@@ -288,10 +304,22 @@ function signOut() {
   $('#pin').value = '';
   $('#letters').innerHTML = '';
   $('#tq').value = '';
-  sessionStorage.removeItem('xmas_mine');
+  sessionStorage.removeItem(SKEY);
+  sessionStorage.removeItem('xmas_mineonly');
   renderTeachers();
   show('#stepName');
 }
+
+/* 같은 탭에서 새로고침했으면 번호를 다시 묻지 않고 보던 자리로 돌아간다 */
+(function restore() {
+  let s = null;
+  try { s = JSON.parse(sessionStorage.getItem(SKEY) || 'null'); } catch { s = null; }
+  if (!s || !s.teacherId) return;
+  picked = { id: s.teacherId, name: s.name };
+  $('#whoLabel').innerHTML = `<span>${esc(s.name || '')}</span> 선생님`;
+  if (s.locked) renderSealed({ count: s.count });
+  else renderLetters({ letters: s.letters || [] });
+})();
 </script>
 </body>
 </html>

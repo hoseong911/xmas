@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test": "node --test",
-    "preview": "node tools/preview-server.js"
+    "preview": "node tools/preview-server.js",
+    "check:teacher": "node tools/check-teacher-tree.mjs"
   },
   "devDependencies": {
     "puppeteer": "^25.3.0"

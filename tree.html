@@ -179,6 +179,19 @@
     .xm-orns.labels .xm-lab { display: block }
     .xm-orns.labels .xm-hang.lab-on .xm-lab { opacity: .72 }
 
+    /* ── 편지 한 통 열어 보기 ────────────────────────────────────
+       <dialog>를 쓰면 가운데 놓기, 뒤 가리기, Esc로 닫기를 브라우저가 해 준다. */
+    .xm-lmodal {
+      border: 0; padding: 0; background: none; color: inherit;
+      width: min(92vw, 520px); max-width: none;
+      -webkit-user-select: text; user-select: text;   /* body에서 글자 고르기를 막아 두었다 */
+    }
+    .xm-lmodal::backdrop { background: rgba(5, 12, 22, .74); backdrop-filter: blur(3px) }
+    .xm-lmodal .xm-letter { max-height: 70dvh; overflow-y: auto }
+    .xm-lmodal .xm-actions { margin-top: 14px }
+    /* 선생님이 자기 편지만 보고 있을 때는 학생 입장 QR이 필요 없다 */
+    body.mineonly .xm-treeqr { display: none }
+
 
   </style>
 </head>
@@ -211,8 +224,17 @@
 
   <div class="xm-minebar" id="minebar">
     <span id="mineLabel"></span>
-    <button class="xm-btn xm-btn-ghost xm-btn-sm" id="mineOff" type="button">트리 전체 보기</button>
+    <button class="xm-btn xm-btn-ghost xm-btn-sm" id="mineToggle" type="button">트리 전체 보기</button>
+    <a class="xm-btn xm-btn-ghost xm-btn-sm" href="teacher.html">편지 모아보기</a>
+    <button class="xm-btn xm-btn-ghost xm-btn-sm" id="mineOut" type="button">나가기</button>
   </div>
+
+  <dialog class="xm-lmodal" id="letterModal">
+    <div class="xm-letter" id="letterCard"></div>
+    <div class="xm-actions">
+      <button class="xm-btn xm-btn-ghost" id="letterClose" type="button">닫기</button>
+    </div>
+  </dialog>
 
   <div class="xm-corner">
     <button class="xm-btn xm-btn-ghost xm-btn-sm" id="nextTree" type="button" hidden>다음 트리</button>
@@ -223,7 +245,8 @@
 <script type="module">
 import { collection, onSnapshot, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { db, C_ORNAMENTS, watchConfig, esc, mountSnow } from "./xmas-core.js";
+import { db, C_ORNAMENTS, watchConfig, esc, nl2br, studentIdLabel, fmtDateTime, mountSnow }
+  from "./xmas-core.js";
 import { ornamentSVG } from "./ornaments.js";
 import { placeAll, pageCount, TREE_CAP, TREE, starPath, treeArtSVG, rayPath } from "./tree-layout.js";
 import { demoCount, demoOrnaments, mountDemoBadge } from "./demo-data.js";
@@ -573,7 +596,7 @@ let lastPages = 1;
 function schedulePage() {
   clearTimeout(pageTimer);
   pageTimer = 0;
-  const pages = pageCount(items.length);
+  const pages = pageCount(visible().length);
   if (pages < 2) return;
   const sec = cam.classList.contains('zoom')
     ? PAN_SEC
@@ -582,7 +605,7 @@ function schedulePage() {
 }
 
 function nextPage() {
-  const pages = pageCount(items.length);
+  const pages = pageCount(visible().length);
   if (pages < 2) return;
   curPage = (curPage + 1) % pages;
   render();
@@ -601,30 +624,84 @@ function nextPage() {
 $('#nextTree').addEventListener('click', nextPage);
 
 /* ── 선생님 모드 ───────────────────────────────────────────────
-   teacher.html에서 네 자리 번호를 확인한 뒤 같은 탭으로 넘어오면
-   sessionStorage에 자기 편지 id 목록이 들어 있다. 트리는 그것만 빛나게 한다.
-   학생이 보는 보통의 트리에는 이 정보가 전혀 없다(그냥 오너먼트뿐). */
-let mineIds = null;
+   teacher.html에서 네 자리 번호를 확인하면 같은 탭의 sessionStorage에 그 선생님께
+   온 편지가 id와 본문까지 들어간다. 그러면 트리는 **그 편지만** 달아 보여 주고,
+   하나를 누르면 화면 가운데에 그 편지가 뜬다. 트리 전체 보기로 바꾸면 모든 편지가
+   다시 달리고 내 것만 빛난다.
+   학생이 보는 보통의 트리에는 이 정보가 전혀 없다(그냥 오너먼트뿐).
+
+   세션은 같은 탭에만 두므로 새로고침해도 그대로 이어지고, 탭을 닫으면 지워진다. */
+let mineIds = null;              // 내 편지 id
+const mineLetters = new Map();   // id → 편지(본문까지)
+let mineName = '';
+let mineOnly = false;            // 내 편지만 달아 보여 주는 보기
+
 try {
-  const raw = sessionStorage.getItem('xmas_mine');
-  if (raw) {
-    const m = JSON.parse(raw);
-    if (m && Array.isArray(m.ids)) {
-      mineIds = new Set(m.ids);
-      $('#minebar').classList.add('on');
-      $('#mineLabel').textContent = `${m.name || ''} 선생님께 온 편지 ${m.ids.length}통이 빛나고 있어요`;
-      $('#orns').classList.add('mine');
-    }
+  const m = JSON.parse(sessionStorage.getItem('xmas_mine') || 'null');
+  if (m && Array.isArray(m.ids)) {
+    mineIds = new Set(m.ids);
+    mineName = m.name || '';
+    for (const l of (m.letters || [])) mineLetters.set(l.id, l);
+    mineOnly = sessionStorage.getItem('xmas_mineonly') !== 'all';   // 기본은 내 편지만
+    $('#mineLabel').textContent = `${mineName} 선생님께 온 편지 ${m.ids.length}통`;
+    $('#minebar').classList.add('on');
+    $('#orns').classList.add('mine');
   }
 } catch { mineIds = null; }
 
-$('#mineOff').addEventListener('click', () => {
-  sessionStorage.removeItem('xmas_mine');
-  mineIds = null;
-  $('#minebar').classList.remove('on');
-  $('#orns').classList.remove('mine');
+// 처음 보기를 화면에 반영한다(render는 아직 쓸 수 없다 — items가 아래에 있다)
+document.body.classList.toggle('mineonly', mineOnly);
+if (mineIds) $('#mineToggle').textContent = mineOnly ? '트리 전체 보기' : '내 편지만 보기';
+
+/** 지금 트리에 달 편지. 내 편지만 보기에서는 그 선생님 것만 남긴다. */
+function visible() {
+  return (mineOnly && mineIds) ? items.filter(it => mineIds.has(it.id)) : items;
+}
+
+function setMineOnly(on) {
+  mineOnly = on && !!mineIds;
+  sessionStorage.setItem('xmas_mineonly', mineOnly ? 'mine' : 'all');
+  document.body.classList.toggle('mineonly', mineOnly);
+  $('#mineToggle').textContent = mineOnly ? '트리 전체 보기' : '내 편지만 보기';
+  curPage = 0;
   render();
+}
+$('#mineToggle').addEventListener('click', () => setMineOnly(!mineOnly));
+
+$('#mineOut').addEventListener('click', () => {
+  sessionStorage.removeItem('xmas_mine');
+  sessionStorage.removeItem('xmas_mineonly');
+  location.href = 'teacher.html';
 });
+
+/* ── 편지 한 통 열어 보기 ──────────────────────────────────────
+   본문은 sessionStorage에 든 것만 쓴다 — 트리 화면은 편지 본문을 Firestore에서
+   읽을 수 없다(규칙이 막는다). 그래서 번호를 맞힌 선생님의 편지만 열린다. */
+const modal = $('#letterModal');
+
+function openLetter(l) {
+  $('#letterCard').innerHTML = `
+    <div class="xm-letter-head">
+      ${ornamentSVG(l.ornament, 34)}
+      <div class="xm-letter-who">
+        ${esc(l.studentName || '')}
+        <small>${esc(studentIdLabel(l.studentId))}</small>
+      </div>
+    </div>
+    <div class="xm-letter-body">${nl2br(l.body)}</div>
+    <div class="xm-letter-foot"><span>${esc(fmtDateTime(l.createdAt))}</span></div>`;
+  modal.showModal();
+}
+
+$('#orns').addEventListener('click', e => {
+  const el = e.target.closest('.xm-hang');
+  if (!el) return;
+  const l = mineLetters.get(el.dataset.id);
+  if (l) openLetter(l);
+});
+$('#letterClose').addEventListener('click', () => modal.close());
+// 바깥을 눌러도 닫힌다(dialog 자신이 받는 클릭은 가려진 배경을 누른 것이다)
+modal.addEventListener('click', e => { if (e.target === modal) modal.close(); });
 
 // ── 오너먼트 걸기 ─────────────────────────────────────────────
 let items = [];                 // [{id, ornament, x, y, studentId, studentName}] 걸린 순서
@@ -639,17 +716,18 @@ function labelHTML(it) {
 
 function render(freshIds = new Set()) {
   const wrap = $('#orns');
-  const pages = pageCount(items.length);
+  const list = visible();
+  const pages = pageCount(list.length);
   if (curPage >= pages) curPage = 0;
   /* 그루마다 따로 자리를 셈한다 — 학생이 고른 자리(x, y)가 있으면 그대로, 없는 옛
      문서만 자동으로 채운다. 오너먼트 크기도 **그 그루에 걸린 통수**로 정해진다. */
   const placed = [];
   for (let p = 0; p < pages; p++) {
-    for (const q of placeAll(items.slice(p * TREE_CAP, (p + 1) * TREE_CAP))) {
+    for (const q of placeAll(list.slice(p * TREE_CAP, (p + 1) * TREE_CAP))) {
       placed.push({ ...q, page: p });
     }
   }
-  const byId = new Map(items.map(it => [it.id, it]));
+  const byId = new Map(list.map(it => [it.id, it]));
 
   // 사라진 것 치우기(어드민에서 숨긴 편지)
   for (const [id, el] of nodes) {
@@ -682,6 +760,7 @@ function render(freshIds = new Set()) {
       wrap.appendChild(el);
       nodes.set(p.id, el);
     }
+    el.dataset.id = p.id;   // 눌렀을 때 어느 편지인지 알려면 필요하다
     el.classList.toggle('mine', !!(mineIds && mineIds.has(p.id)));
     // 띠 안에 드는지, 이웃 이름과 겹치지 않는지 보려고 트리 좌표를 적어 둔다
     el.dataset.x = p.x;
@@ -694,12 +773,17 @@ function render(freshIds = new Set()) {
     el.hidden = p.page !== curPage;
   }
 
-  $('#treeEmpty').hidden = items.length > 0;
+  $('#treeEmpty').hidden = list.length > 0;
   $('#nextTree').hidden = pages < 2;
-  $('#foot').innerHTML = items.length
-    ? `지금까지 <b>${items.length}</b>통의 마음이 모였어요`
-      + (pages > 1 ? ` · ${curPage + 1}번째 트리 (모두 ${pages}그루)` : '')
-    : '';
+  $('#foot').innerHTML = mineOnly && mineIds
+    /* 공개일 전이면 본문이 오지 않는다(함수가 id만 준다) — 눌러도 안 열리니 그렇게 적는다 */
+    ? (!list.length ? ''
+        : mineLetters.size ? '오너먼트를 하나씩 눌러 읽어 보세요'
+        : '편지는 공개되는 날부터 읽을 수 있어요')
+    : (items.length
+        ? `지금까지 <b>${items.length}</b>통의 마음이 모였어요`
+          + (pages > 1 ? ` · ${curPage + 1}번째 트리 (모두 ${pages}그루)` : '')
+        : '');
   // 그루 수가 변한 때만 시계를 다시 건다(편지가 들어올 때마다 되감으면 안 넘어간다)
   if (pages !== lastPages) { lastPages = pages; schedulePage(); }
   firstPaint = false;
