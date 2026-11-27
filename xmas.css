@@ -437,6 +437,13 @@
 }
 /* 선생님이 로그인했을 때 자기 편지만 빛난다 */
 .xm-orns.mine .xm-hang { opacity: .26; filter: saturate(.35) }
+/* 폰에서 오너먼트는 20px 남짓이라 손가락으로 맞히기 어렵다.
+   그림은 그대로 두고 **누를 자리만** 둘레로 넓힌다(보이지는 않는다). */
+.xm-orns.mine .xm-hang.mine::after {
+  content: '';
+  position: absolute; inset: -14px;
+  border-radius: 50%;
+}
 .xm-orns.mine .xm-hang.mine {
   cursor: pointer;          /* 선생님 화면에서는 눌러 편지를 연다 */
   opacity: 1;

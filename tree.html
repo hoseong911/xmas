@@ -70,14 +70,16 @@
     .xm-minebar {
       display: none;
       position: fixed; z-index: 5; left: 50%; top: 14px; transform: translateX(-50%);
-      align-items: center; gap: 12px; flex-wrap: wrap;
+      align-items: center; gap: 8px; flex-wrap: wrap;
       background: rgba(10, 22, 34, .82);
       border: 1px solid var(--hi-border-faint);
-      border-radius: 999px; padding: 10px 18px;
-      font-size: 14px; font-weight: 700; color: var(--hi-accent);
+      border-radius: 999px; padding: 7px 8px 7px 16px;
+      font-size: 13px; font-weight: 700; color: var(--hi-accent);
       max-width: max-content;
     }
     .xm-minebar.on { display: flex }
+    /* 단추가 셋이라 기본 크기(44px, 좌우 18px)로는 띠가 화면 폭을 거의 다 먹는다 */
+    .xm-minebar .xm-btn { min-height: 32px; padding: 0 12px; font-size: 13px }
 
     /* 구석 단추 */
     .xm-corner {
@@ -182,15 +184,36 @@
     /* ── 편지 한 통 열어 보기 ────────────────────────────────────
        <dialog>를 쓰면 가운데 놓기, 뒤 가리기, Esc로 닫기를 브라우저가 해 준다. */
     .xm-lmodal {
-      border: 0; padding: 0; background: none; color: inherit;
+      border: 0; padding: 0; background: none; color: inherit; overflow: visible;
       width: min(92vw, 520px); max-width: none;
+      /* 브라우저 기본 상한(100% - 6px - 2em)은 편지와 [닫기]를 합한 높이보다 모자라
+         단추 아래가 잘렸다. 상한을 화면에 맞춰 잡고 **편지 쪽만** 줄어들게 둔다. */
+      max-height: calc(100dvh - 36px);
       -webkit-user-select: text; user-select: text;   /* body에서 글자 고르기를 막아 두었다 */
     }
+    /* [open]을 꼭 붙인다 — 그냥 .xm-lmodal에 display를 주면 브라우저가 닫아 둔
+       dialog(display:none)를 덮어써 닫아도 그대로 보인다 */
+    .xm-lmodal[open] { display: flex; flex-direction: column }
     .xm-lmodal::backdrop { background: rgba(5, 12, 22, .74); backdrop-filter: blur(3px) }
-    .xm-lmodal .xm-letter { max-height: 70dvh; overflow-y: auto }
-    .xm-lmodal .xm-actions { margin-top: 14px }
-    /* 선생님이 자기 편지만 보고 있을 때는 학생 입장 QR이 필요 없다 */
-    body.mineonly .xm-treeqr { display: none }
+    .xm-lmodal .xm-letter { min-height: 0; overflow-y: auto }   /* min-height:0 이 없으면 안 줄어든다 */
+    .xm-lmodal .xm-actions { flex: 0 0 auto; margin-top: 12px; align-items: center }
+    /* 폰에서 .xm-actions는 단추를 세로로 쌓아 폭을 꽉 채운다. [닫기] 하나뿐이니 작게 둔다. */
+    .xm-lmodal .xm-actions .xm-btn { flex: 0 0 auto; max-width: none; width: auto }
+    /* 선생님이 들어와 있으면 전시용 안내는 비운다 — 학생 입장 QR도, 아래 구석의
+       [선생님 전용]도 이미 들어온 분께는 쓸 데가 없다. */
+    body.signed .xm-treeqr, body.signed #teacherLink { display: none }
+    @media (max-width: 600px) {
+      /* 폰에서는 제목이 알림 띠와 같은 자리라 글자가 겹쳐 읽히지 않는다 */
+      body.signed .xm-treehead { display: none }
+      /* 폰에서는 띠를 화면 폭에 맞춰 편다. left:50%만 주면 **자리가 오른쪽 절반뿐이라**
+         띠가 195px로 눌려 단추 셋이 세 줄로 접힌다(가운데로 옮기는 것은 transform이라
+         자리 셈에는 안 들어간다). 이름은 한 줄로 따로 두고 단추 셋을 아래 한 줄에 세운다. */
+      .xm-minebar {
+        left: 10px; right: 10px; transform: none;
+        max-width: none; justify-content: center;
+      }
+      .xm-minebar #mineLabel { width: 100%; text-align: center }
+    }
 
 
   </style>
@@ -232,14 +255,14 @@
   <dialog class="xm-lmodal" id="letterModal">
     <div class="xm-letter" id="letterCard"></div>
     <div class="xm-actions">
-      <button class="xm-btn xm-btn-ghost" id="letterClose" type="button">닫기</button>
+      <button class="xm-btn xm-btn-ghost xm-btn-sm" id="letterClose" type="button">닫기</button>
     </div>
   </dialog>
 
   <div class="xm-corner">
     <button class="xm-btn xm-btn-ghost xm-btn-sm" id="nextTree" type="button" hidden>다음 트리</button>
     <button class="xm-btn xm-btn-ghost xm-btn-sm" id="viewBtn" type="button">가까이 보기</button>
-    <a class="xm-btn xm-btn-ghost xm-btn-sm" href="teacher.html">선생님 전용</a>
+    <a class="xm-btn xm-btn-ghost xm-btn-sm" id="teacherLink" href="teacher.html">선생님 전용</a>
   </div>
 
 <script type="module">
@@ -650,6 +673,7 @@ try {
 } catch { mineIds = null; }
 
 // 처음 보기를 화면에 반영한다(render는 아직 쓸 수 없다 — items가 아래에 있다)
+document.body.classList.toggle('signed', !!mineIds);
 document.body.classList.toggle('mineonly', mineOnly);
 if (mineIds) $('#mineToggle').textContent = mineOnly ? '트리 전체 보기' : '내 편지만 보기';
 
