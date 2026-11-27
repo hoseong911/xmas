@@ -11,6 +11,7 @@
   <style>
     /* 네 자리 번호 칸 — 가운데 크게 */
     .xm-pin {
+      display: block;          /* input 은 inline 이라 이게 없으면 margin:auto 가 먹지 않는다 */
       width: 190px;
       margin: 0 auto;
       text-align: center;
@@ -78,6 +79,7 @@
       <p class="xm-sub">받으신 네 자리 번호를 넣어 주세요</p>
       <div class="xm-panel">
         <div class="xm-who" id="whoLabel"></div>
+        <p class="xm-hint" style="text-align:center;margin:0 0 14px">관리자에게 전달 받은 비밀번호를 입력하세요</p>
         <input class="xm-input xm-pin" id="pin" type="password" inputmode="numeric"
                maxlength="4" autocomplete="off" enterkeyhint="go">
         <div class="xm-err" id="pinErr" style="text-align:center"></div>
