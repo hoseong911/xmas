@@ -156,7 +156,8 @@
       <!-- 3단계 — 편지 쓰기 -->
       <section class="xm-step" id="step3">
         <h1 class="xm-title">마음을 적어 주세요</h1>
-        <p class="xm-sub">선생님께 전하고 싶은 이야기를 써 보세요</p>
+        <p class="xm-sub">선생님께 전하고 싶은 이야기를 써 보세요<br>
+          <strong class="xm-min-hint" id="minHint">공백 제외 30자 이상 작성해야 해요</strong></p>
         <div class="xm-panel">
           <div class="xm-paper">
             <div class="xm-paper-to" id="paperTo"></div>
@@ -470,6 +471,7 @@ function renderCount() {
   const max = cfg ? cfg.maxLen : 400;
   const min = cfg ? cfg.minLen : MIN_LEN_FLOOR;
   const v = $('#body').value;
+  $('#minHint').textContent = `공백 제외 ${min}자 이상 작성해야 해요`;
   $('#count').textContent = `${countLen(v)} / ${max}`;
   $('#count').classList.toggle('over', tooLong(v, max));
   $('#go3').disabled = !(meaningfulLen(v) >= min && !tooLong(v, max));

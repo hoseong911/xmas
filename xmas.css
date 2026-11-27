@@ -134,6 +134,7 @@
   line-height: 1.6;
   margin: 0 0 26px;
 }
+.xm-min-hint { color: var(--hi-accent); font-weight: 700 }
 
 .xm-panel {
   background: var(--hi-bg-card);
