@@ -249,7 +249,7 @@
 import { collection, doc, getDocs, getCountFromServer, query, orderBy, where, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, C_LETTERS, C_ORNAMENTS, C_TEACHERS, watchConfig, esc, studentIdLabel, mountSnow,
-         MIN_LEN_FLOOR }
+         MIN_LEN_FLOOR, BODY_HARD_MAX }
   from "./xmas-core.js";
 import { ORNAMENTS, ornamentSVG } from "./ornaments.js";
 import { TREE, starPath, treeArtSVG, placeAll, clampSpot, nudgeFree, autoSpot,
@@ -460,13 +460,19 @@ $('#go2').addEventListener('click', () => {
 
 // ── 3단계: 편지 쓰기 ──────────────────────────────────────────
 
+/* 글자 수는 공백을 빼고 센다(2026-11-27). 표시와 최대 글자 수가 같은 숫자를 봐야
+   "400이 안 됐는데 빨갛게 된다"가 안 생긴다. 다만 보안 규칙은 공백까지 넣은 길이로
+   2000자(BODY_HARD_MAX)를 막으므로 그것은 따로 지킨다. */
+const countLen = v => v.replace(/\s/gu, '').length;
+const tooLong = (v, max) => countLen(v) > max || v.length > BODY_HARD_MAX;
+
 function renderCount() {
   const max = cfg ? cfg.maxLen : 400;
   const min = cfg ? cfg.minLen : MIN_LEN_FLOOR;
   const v = $('#body').value;
-  $('#count').textContent = `${v.length} / ${max}`;
-  $('#count').classList.toggle('over', v.length > max);
-  $('#go3').disabled = !(meaningfulLen(v) >= min && v.length <= max);
+  $('#count').textContent = `${countLen(v)} / ${max}`;
+  $('#count').classList.toggle('over', tooLong(v, max));
+  $('#go3').disabled = !(meaningfulLen(v) >= min && !tooLong(v, max));
 }
 $('#body').addEventListener('input', () => { $('#err3').textContent = ''; renderCount(); });
 
@@ -474,7 +480,7 @@ $('#back3').addEventListener('click', () => show(2));
 $('#go3').addEventListener('click', () => {
   const v = $('#body').value.trim();
   const max = cfg ? cfg.maxLen : 400;
-  if (v.length > max) { $('#err3').textContent = '편지가 조금 길어요. 줄여 주세요.'; return; }
+  if (tooLong(v, max)) { $('#err3').textContent = '편지가 조금 길어요. 줄여 주세요.'; return; }
   if (containsBadWord(v)) {
     $('#err3').textContent = '편지에 쓸 수 없는 말이 있어요. 다시 살펴봐 주세요.';
     return;
