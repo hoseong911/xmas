@@ -80,5 +80,71 @@ await new Promise(r => setTimeout(r, 900));
 assert.ok(await page.$eval('#stepRead', e => e.classList.contains('on')), '모아보기 화면으로 복구되어야 한다');
 assert.equal(await page.$$eval('.xm-letter', els => els.length), 5, '편지 5통이 그대로 떠야 한다');
 
+/* ── 화면 크기 훑기 ────────────────────────────────────────────
+   선생님은 각자 폰으로 보신다. 큰 화면에서만 맞춰 두면 폰과 세로 태블릿에서
+   알림 띠가 세 줄로 접히고 전시용 제목과 글자가 겹친다(2026-11-27에 셋 다 났다).
+   그래서 폭마다 **겹치는지와 잘리는지**를 숫자로 본다. */
+const SIZES = [
+  ['폰',          390, 844],
+  ['누운 폰',     844, 390],
+  ['세로 태블릿', 768, 1024],
+  ['가로 태블릿', 1024, 768],
+  ['좁은 창',     601, 900],
+  ['PC',          1440, 900],
+];
+/** 두 네모가 겹치는가 */
+const hit = (x, y) => x && y && x.left < y.right && y.left < x.right && x.top < y.bottom && y.top < x.bottom;
+
+for (const [tag, w, h] of SIZES) {
+  const sp = await browser.newPage();
+  await sp.setViewport({ width: w, height: h });
+  await sp.goto(URL, { waitUntil: 'networkidle2' });
+  await sp.evaluate(s => sessionStorage.setItem('xmas_mine', JSON.stringify(s)), SESSION);
+  await sp.reload({ waitUntil: 'networkidle2' });
+  await new Promise(r => setTimeout(r, 700));
+
+  const m = await sp.evaluate(() => {
+    const box = sel => {
+      const el = document.querySelector(sel);
+      if (!el || getComputedStyle(el).display === 'none') return null;
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    };
+    const bar = document.querySelector('#minebar');
+    return {
+      bar: box('#minebar'),
+      // 이름 한 줄 + 단추 한 줄, 두 줄까지가 봐 줄 만하다
+      rows: new Set([...bar.children].map(c => Math.round(c.getBoundingClientRect().y))).size,
+      head: box('.xm-treehead h1'),
+      corner: box('.xm-corner'),
+      // 아래 글은 가로로 꽉 찬 상자다. 글자가 실제로 앉은 자리를 재야 한다.
+      foot: (() => {
+        const el = document.querySelector('.xm-treefoot');
+        if (!el.textContent.trim()) return null;
+        const rg = document.createRange();
+        rg.selectNodeContents(el);
+        const r = rg.getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+      })(),
+    };
+  });
+  assert.ok(m.rows <= 2, `${tag}(${w}×${h}): 알림 띠가 ${m.rows}줄로 접혔다`);
+  assert.ok(m.bar.right <= w, `${tag}: 알림 띠가 화면 밖으로 나갔다`);
+  assert.ok(!hit(m.head, m.bar), `${tag}: 전시용 제목과 알림 띠가 겹친다`);
+  assert.ok(!hit(m.foot, m.corner), `${tag}: 아래 글이 구석 단추와 겹친다`);
+
+  // 아주 긴 편지에서도 [닫기]가 화면 안에 있어야 한다
+  await sp.click('.xm-hang.mine');
+  await new Promise(r => setTimeout(r, 300));
+  await sp.evaluate(() => {
+    document.querySelector('.xm-letter-body').innerHTML = '아주 긴 편지<br>'.repeat(90);
+  });
+  await new Promise(r => setTimeout(r, 250));
+  const btn = await sp.$eval('#letterClose', e => Math.round(e.getBoundingClientRect().bottom));
+  assert.ok(btn <= h, `${tag}: 긴 편지에서 [닫기] 아래가 잘린다 (${btn} > ${h})`);
+  console.log(`  ${tag} ${w}×${h} — 띠 ${m.rows}줄, 닫기바닥 ${btn}/${h}`);
+  await sp.close();
+}
+
 await browser.close();
 console.log('전부 통과');

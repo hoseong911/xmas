@@ -69,13 +69,18 @@
     /* 선생님 모드 알림 띠 */
     .xm-minebar {
       display: none;
-      position: fixed; z-index: 5; left: 50%; top: 14px; transform: translateX(-50%);
+      /* **left:50% + transform으로 가운데에 두지 않는다.** 그렇게 하면 상자가 쓸 수 있는
+         자리가 화면의 오른쪽 절반뿐이라 폭이 절반으로 눌리고(390px 폰에서 195px),
+         단추 셋이 세 줄로 접힌다 — 가운데로 옮기는 transform은 자리 셈에 안 들어간다.
+         좌우를 0으로 열어 두고 margin auto로 가운데 둔다. */
+      position: fixed; z-index: 5; top: 14px; left: 0; right: 0;
+      width: max-content; max-width: calc(100vw - 20px);
+      margin-inline: auto;
       align-items: center; gap: 8px; flex-wrap: wrap;
       background: rgba(10, 22, 34, .82);
       border: 1px solid var(--hi-border-faint);
       border-radius: 999px; padding: 7px 8px 7px 16px;
       font-size: 13px; font-weight: 700; color: var(--hi-accent);
-      max-width: max-content;
     }
     .xm-minebar.on { display: flex }
     /* 단추가 셋이라 기본 크기(44px, 좌우 18px)로는 띠가 화면 폭을 거의 다 먹는다 */
@@ -199,21 +204,18 @@
     .xm-lmodal .xm-actions { flex: 0 0 auto; margin-top: 12px; align-items: center }
     /* 폰에서 .xm-actions는 단추를 세로로 쌓아 폭을 꽉 채운다. [닫기] 하나뿐이니 작게 둔다. */
     .xm-lmodal .xm-actions .xm-btn { flex: 0 0 auto; max-width: none; width: auto }
-    /* 선생님이 들어와 있으면 전시용 안내는 비운다 — 학생 입장 QR도, 아래 구석의
-       [선생님 전용]도 이미 들어온 분께는 쓸 데가 없다. */
-    body.signed .xm-treeqr, body.signed #teacherLink { display: none }
-    @media (max-width: 600px) {
-      /* 폰에서는 제목이 알림 띠와 같은 자리라 글자가 겹쳐 읽히지 않는다 */
-      body.signed .xm-treehead { display: none }
-      /* 폰에서는 띠를 화면 폭에 맞춰 편다. left:50%만 주면 **자리가 오른쪽 절반뿐이라**
-         띠가 195px로 눌려 단추 셋이 세 줄로 접힌다(가운데로 옮기는 것은 transform이라
-         자리 셈에는 안 들어간다). 이름은 한 줄로 따로 두고 단추 셋을 아래 한 줄에 세운다. */
-      .xm-minebar {
-        left: 10px; right: 10px; transform: none;
-        max-width: none; justify-content: center;
-      }
+    /* 선생님이 들어와 있으면 전시용 안내는 다 비운다 — 제목도, 학생 입장 QR도, 아래
+       구석의 [선생님 전용]도 이미 들어온 분께는 쓸 데가 없다. 게다가 제목은 알림 띠와
+       같은 줄이라 폰과 세로 태블릿에서 글자가 겹쳐 둘 다 안 읽혔다. */
+    body.signed .xm-treehead, body.signed #teacherLink { display: none }
+    /* 좁은 화면에서는 띠에 다 들어가지 않는다. 이름을 한 줄로 따로 두면 단추 셋이
+       아래 한 줄에 나란히 선다(안 그러면 이름 뒤에 끼어 들어가 세 줄이 된다). */
+    @media (max-width: 820px) {
+      .xm-minebar { justify-content: center }
       .xm-minebar #mineLabel { width: 100%; text-align: center }
     }
+    /* 아래 글이 구석 단추([가까이 보기] 등) 밑으로 들어가는 폭이 900px까지 이어진다 */
+    @media (max-width: 900px) { .xm-treefoot { bottom: 58px } }
 
 
   </style>
